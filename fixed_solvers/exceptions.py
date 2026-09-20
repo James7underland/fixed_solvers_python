@@ -1,19 +1,17 @@
-"""Исключения библиотеки (аналоги C++-типов из fixed_solvers)."""
+"""Исключения библиотеки."""
 
 
 class domain_violation(BaseException):
     """Выход за область определения функции.
 
-    В C++ тип `domain_violation` намеренно не наследует `std::exception`,
-    чтобы его ловили только явные `catch (const domain_violation&)`.
-    Здесь класс наследует `BaseException`, а не `Exception`, поэтому
-    широкий `except Exception` его не перехватывает.
+    Наследует `BaseException`, а не `Exception`, поэтому широкий
+    `except Exception` его не перехватывает — ловить нужно явно.
     """
 
 
 class logic_error(Exception):
-    """Аналог std::logic_error."""
+    """Нарушение предусловия или инварианта."""
 
 
 class invalid_argument(ValueError):
-    """Аналог std::invalid_argument."""
+    """Некорректный аргумент вызова."""

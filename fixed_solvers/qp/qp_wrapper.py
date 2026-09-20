@@ -11,7 +11,7 @@ from .eiquadprog import solve_quadprog
 
 
 def get_sparse_matrix_CCS(matrix) -> tuple[list[float], list[int], list[int]]:
-    """Преобразует разреженную матрицу в формат CCS (CSC), как qp_wrapper.h."""
+    """Преобразует разреженную матрицу в формат CCS (CSC)."""
     csc = sparse.csc_matrix(matrix, dtype=float)
     csc.sort_indices()
     values: list[float] = []
@@ -36,7 +36,7 @@ def solve_quadprog_box(
     minimum: Sequence[tuple[int, float]],
     maximum: Sequence[tuple[int, float]],
 ) -> np.ndarray:
-    """min 0.5 x' H x + f' x при box-ограничениях — как testing/test_main.cpp."""
+    """min 0.5 x' H x + f' x при box-ограничениях."""
     H_dense = np.asarray(H.toarray() if sparse.issparse(H) else H, dtype=float)
     f_vec = np.asarray(f, dtype=float).reshape(-1)
     n = f_vec.size

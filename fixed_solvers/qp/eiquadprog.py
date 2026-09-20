@@ -1,4 +1,4 @@
-"""Goldfarb–Idnani dual QP (порт testing/qp/eiquadprog.hpp).
+"""Goldfarb–Idnani dual QP.
 
 min 0.5 x' G x + g0' x
 s.t. CE^T x + ce0 = 0
@@ -173,7 +173,7 @@ def solve_quadprog2(chol, c1: float, g0: np.ndarray, CE, ce0, CI, ci0, x: np.nda
     if x.size != n:
         raise ValueError(f"x must have length {n}, got {x.size}")
 
-    # +1 — слот A(iq)/u(iq) как в C++ при iq == m+p
+    # +1 — запасной слот A[iq]/u[iq], когда iq == m+p
     work = m + p + 1
     R = np.zeros((n, n), dtype=float)
     J = np.eye(n, dtype=float)

@@ -24,7 +24,7 @@ def test_solves_unconstrained_qp():
 
 
 def test_solves_equality_and_inequality_quadprog_example():
-    # Arrange: классический пример QuadProg++ / eiquadprog
+    # Arrange: QP с одним равенством и тремя неравенствами
     G = np.array([[4.0, -2.0], [-2.0, 4.0]])
     g0 = np.array([6.0, 0.0])
     CE = np.array([[1.0], [1.0]])

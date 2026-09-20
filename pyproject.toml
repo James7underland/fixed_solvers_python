@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "fixed-solvers"
 version = "1.0.0"
-description = "Newton–Raphson, bisection and Gauss–Newton solvers of fixed and variable dimension (Python port of fixed_solvers)"
+description = "Newton–Raphson, bisection and Gauss–Newton solvers of fixed and variable dimension"
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "Proprietary" }

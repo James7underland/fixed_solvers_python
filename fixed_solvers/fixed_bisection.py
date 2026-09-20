@@ -238,7 +238,7 @@ def _solve(solver_parameters, initial_argument, residuals, result, analysis) -> 
     if not math.isfinite(initial_argument):
         result.argument = (maxx + minx) / 2.0
     else:
-        # Как в C++: проверка идёт по result.argument (NaN), а не по initial_argument.
+        # Проверка идёт по result.argument (NaN по умолчанию), а не по initial_argument.
         if result.argument < minx or result.argument > maxx:
             raise logic_error("Не верно задано начальное приближение")
         result.argument = initial_argument

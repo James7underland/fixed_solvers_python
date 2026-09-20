@@ -1,4 +1,4 @@
-"""Операции над массивами фиксированной размерности (порт array_ext.h)."""
+"""Операции над массивами фиксированной размерности."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ import numpy as np
 
 
 class array_maker:
-    """Аналог array_maker<T, N>::make_array(v)."""
+    """Создаёт массив длины n, заполненный value."""
 
     @staticmethod
     def make_array(n: int, value):

@@ -204,7 +204,7 @@ def find_positive_cubic_extremums(coefficients: list[float]) -> tuple[float, flo
 
 
 def solve_realpoly3_vieta(poly_coeffs: list[float]) -> list[float]:
-    """Тригонометрическая формула Виета (как ranged_functions.h)."""
+    """Тригонометрическая формула Виета."""
     coeffs = [float(c) for c in poly_coeffs]
     higher_order_coeff = coeffs[-1]
     coeffs = [c / higher_order_coeff for c in coeffs]

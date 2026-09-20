@@ -1,4 +1,4 @@
-"""Математические хелперы (namespace fixed_solvers в C++)."""
+"""Математические хелперы."""
 
 from __future__ import annotations
 

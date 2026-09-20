@@ -1,4 +1,4 @@
-"""Публичный API Python-порта fixed_solvers (аналог fixed/fixed.h)."""
+"""Публичный API библиотеки fixed_solvers."""
 
 from .algebra import (
     default_var,

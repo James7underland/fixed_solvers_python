@@ -1,4 +1,4 @@
-"""Строковые хелперы (порт fixed/helpers/string_helpers.h)."""
+"""Строковые хелперы."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ def string_ends_with(value: str, ending: str) -> bool:
 
 
 def UTF8_to_wchar(text: str | bytes) -> str:
-    """Декодер UTF-8 побайтово, как C++ UTF8_to_wchar."""
+    """Декодер UTF-8 побайтово."""
     if isinstance(text, str):
         data = text.encode("utf-8")
     else:
@@ -49,7 +49,7 @@ def UTF8_to_wchar(text: str | bytes) -> str:
 
 
 def wchar_to_UTF8(text: str) -> str:
-    """Кодирование широкой строки в UTF-8, как C++ wchar_to_UTF8."""
+    """Кодирование широкой строки в UTF-8."""
     out = bytearray()
     codepoint = 0
     for ch in text:
@@ -80,7 +80,7 @@ def wchar_to_UTF8(text: str) -> str:
 
 
 def string2wide(text: str | bytes) -> str:
-    """Windows: интерпретация байт как cp1251; иначе UTF-8, как в GCC-ветке."""
+    """Windows: интерпретация байт как cp1251; иначе UTF-8."""
     if os.name != "nt":
         raw = text.encode("utf-8") if isinstance(text, str) else bytes(text)
         return UTF8_to_wchar(raw)
@@ -108,7 +108,7 @@ def int2wstr(value) -> str:
 
 
 def string_replace(text: str, frm: str, to: str) -> str:
-    """Алгоритм C++ string_replace: не пересканирует вставленный фрагмент."""
+    """Замена подстроки: не пересканирует вставленный фрагмент."""
     if not frm:
         return text
     start_pos = 0
