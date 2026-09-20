@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from enum import IntEnum, Enum
+from enum import IntEnum
 
 
 class step_constraint_algorithm_t(IntEnum):

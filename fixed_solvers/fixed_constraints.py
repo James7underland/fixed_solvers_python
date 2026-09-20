@@ -3,14 +3,12 @@
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass, field
-from typing import Any, Callable, Iterable, Sequence
+from typing import Any, Callable, Sequence
 
 import numpy as np
 from scipy import sparse
 
-from .algebra import default_var, inner_prod, is_scalar, var_copy, var_div, var_size
-from .exceptions import logic_error
+from .algebra import default_var, inner_prod
 from .fixed_linear_solver import solve_linear_system
 from .helpers.math_helpers import sgn
 

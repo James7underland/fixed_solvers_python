@@ -7,7 +7,7 @@ from typing import Sequence
 import numpy as np
 from scipy import sparse
 
-from .eiquadprog import solve_quadprog, solve_quadprog2
+from .eiquadprog import solve_quadprog
 
 
 def get_sparse_matrix_CCS(matrix) -> tuple[list[float], list[int], list[int]]:

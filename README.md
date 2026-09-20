@@ -94,7 +94,22 @@ python -m pytest
 
 Тесты повторяют набор из исходного C++-репозитория (`testing/`) и закрывают QP, `array_ext`, sparse-ограничения и строковые хелперы.
 
-CI: GitHub Actions запускает `pytest` на Python 3.10–3.12.
+## CI/CD
+
+GitHub Actions в репозитории:
+
+- **CI** (`ci.yml`) на `push`/`pull_request` в `main`: ruff, pytest на Python 3.10–3.12 (Linux) и 3.12 (Windows), сборка sdist/wheel.
+- **Release** (`release.yml`): тег вида `v1.0.1` собирает пакет, прогоняет тесты и публикует GitHub Release с артефактами.
+- **Dependabot** раз в неделю обновляет Actions и pip-зависимости.
+
+Локально:
+
+```powershell
+python -m pip install -e ".[test,dev]"
+python -m ruff check .
+python -m pytest --cov=fixed_solvers
+python -m build
+```
 
 ## Документация алгоритмов
 

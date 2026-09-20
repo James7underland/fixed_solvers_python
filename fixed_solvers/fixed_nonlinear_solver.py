@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 import math
-from typing import Any, Optional
+from typing import Any
 
 import numpy as np
 from scipy import sparse
@@ -15,7 +15,6 @@ from .algebra import (
     default_var,
     has_not_finite,
     is_scalar,
-    squared_norm,
     var_add,
     var_copy,
     var_scale,
@@ -33,7 +32,6 @@ from .enums import (
 from .exceptions import domain_violation, logic_error
 from .fixed_constraints import fixed_linear_constraints, fixed_solver_constraints
 from .fixed_linear_solver import solve_linear_system
-from .fixed_system import fixed_system_t
 from .line_search.divider import divider_search
 from .qp.qp_wrapper import solve_quadprog_box
 

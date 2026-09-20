@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Any, Generic, Sequence, TypeVar
+from dataclasses import dataclass
+from typing import Generic, Sequence, TypeVar
 
 from ..exceptions import logic_error
 from .cubic_equation_functions import solve_cubic_equation

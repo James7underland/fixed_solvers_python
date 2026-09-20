@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import Any, Callable, Sequence
+from typing import Callable
 
 import numpy as np
 
@@ -15,9 +15,7 @@ from .algebra import (
     squared_norm,
     two_sided_derivative,
     var_copy,
-    var_setitem,
 )
-from .exceptions import logic_error
 
 
 class fixed_system_types:

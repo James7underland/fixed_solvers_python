@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 
 import numpy as np
 
-from .algebra import as_float_array, has_not_finite, numeric_derivative_delta, var_add, var_copy, var_scale
+from .algebra import as_float_array, var_add, var_copy, var_scale
 from .enums import numerical_result_code_t
 from .fixed_nonlinear_solver import (
     fixed_solver_parameters_t,
