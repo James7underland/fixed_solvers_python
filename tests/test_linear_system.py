@@ -1,3 +1,4 @@
+"""Тесты СЛАУ малой размерности методом Крамера."""
 import numpy as np
 
 from fixed_solvers import solve_linear_system

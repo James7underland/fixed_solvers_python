@@ -38,6 +38,7 @@ from .qp.qp_wrapper import solve_quadprog_box
 
 @dataclass
 class fixed_solver_analysis_parameters_t:
+    """Флаги диагностики Ньютона: истории, шаги, сетка line_search_explore."""
     argument_history: bool = False
     objective_function_history: bool = False
     steps: bool = False
@@ -49,12 +50,14 @@ class fixed_solver_analysis_parameters_t:
 
 @dataclass
 class step_line_search_explore_result_t:
+    """Значения ц.ф. по сетке alpha и индексы узлов с domain_violation."""
     values: list[float] = field(default_factory=list)
     domain_violation_indices: list[int] = field(default_factory=list)
 
 
 @dataclass
 class no_line_search_parameters:
+    """Заглушка линейного поиска: всегда полный шаг."""
     maximum_step: float = 1.0
 
     def step_on_search_fail(self) -> float:
@@ -62,14 +65,17 @@ class no_line_search_parameters:
 
 
 class no_line_search:
+    """Линейный поиск, который сразу возвращает alpha = 1."""
     parameters_type = no_line_search_parameters
 
     @staticmethod
     def search(parameters, function, a, b, f_a, f_b=float("nan")):
+        """Всегда полный шаг (1.0) и одна «итерация» поиска."""
         return 1.0, 1
 
 
 class fixed_solver_parameters_t:
+    """Параметры Ньютона: итерации, нормы, ограничения и выбранный line search."""
     def __init__(
         self,
         dimension: int,
@@ -94,6 +100,7 @@ class fixed_solver_parameters_t:
 
 
 class fixed_solver_result_t:
+    """Результат Ньютона: код, балл, аргумент, невязки и метрика шага."""
     def __init__(self, dimension: int, argument_size: int | None = None) -> None:
         self.dimension = int(dimension)
         self.argument_increment_metric = 0.0
@@ -108,6 +115,7 @@ class fixed_solver_result_t:
 
 
 class fixed_solver_result_analysis_t:
+    """История аргумента, шагов и сетки целевой функции по итерациям."""
     def __init__(self) -> None:
         self.target_function: list[list[float]] = []
         self.argument_history: list[Any] = []
@@ -115,6 +123,7 @@ class fixed_solver_result_analysis_t:
         self.line_search_explore_domain_violation_indices: list[list[int]] = []
 
     def get_learning_curve(self) -> list[float]:
+        """Кривая обучения: одно значение ц.ф. на шаг (без explore-сетки)."""
         result: list[float] = []
         for objective_function_value in self.target_function:
             if len(objective_function_value) != 1:
@@ -124,6 +133,7 @@ class fixed_solver_result_analysis_t:
 
 
 class _NewtonView:
+    """Солвер Ньютона для заданной dimension."""
     def __init__(self, dimension: int) -> None:
         self.dimension = int(dimension)
 
@@ -135,6 +145,7 @@ class _NewtonView:
 
 
 class _NewtonFactory:
+    """Фабрика: ``fixed_newton_raphson[n].solve_dense(...)``."""
     def __getitem__(self, dimension: int) -> _NewtonView:
         return _NewtonView(dimension)
 
@@ -152,6 +163,7 @@ fixed_newton_raphson = _NewtonFactory()
 
 
 def argument_increment_factor(dimension: int, argument, argument_increment) -> float:
+    """Относительная норма шага: компоненты нормируются на max(1, |x_i|)."""
     if dimension == 1 and is_scalar(argument):
         arg = max(1.0, abs(float(argument)))
         inc = float(argument_increment)
@@ -168,6 +180,7 @@ def argument_increment_factor(dimension: int, argument, argument_increment) -> f
 
 
 def _perform_step_research(residuals, argument, p, on_domain_violation) -> step_line_search_explore_result_t:
+    """Сетка ц.ф. на [0, 1] вдоль направления p (101 узел)."""
     research_step_count = 100
     result = step_line_search_explore_result_t()
     for index in range(research_step_count + 1):
@@ -185,6 +198,7 @@ def _perform_step_research(residuals, argument, p, on_domain_violation) -> step_
 
 
 def _perform_line_search(line_search_cls, line_search_parameters, residuals, argument, r, p) -> float:
+    """Линейный поиск вдоль p по целевой функции невязок."""
     def directed_function(step: float):
         return residuals(var_add(argument, var_scale(step, p)))
 
@@ -198,6 +212,7 @@ def _perform_line_search(line_search_cls, line_search_parameters, residuals, arg
 
 
 def _triplets_to_csc(triplets, n_rows: int, n_cols: int):
+    """COO-тройки → CSC-матрица SciPy."""
     if not triplets:
         return sparse.csc_matrix((n_rows, n_cols), dtype=float)
     rows, cols, data = zip(*triplets)
@@ -205,6 +220,7 @@ def _triplets_to_csc(triplets, n_rows: int, n_cols: int):
 
 
 def _solve_newton(dimension: int, residuals, current_residuals_value, argument):
+    """Направление Ньютона: -J^{-1} r (разреженный LU при dimension=-1)."""
     if dimension == -1:
         J_triplets = residuals.jacobian_sparse(argument)
         n = int(np.asarray(argument).reshape(-1).size)
@@ -220,6 +236,7 @@ def _solve_newton(dimension: int, residuals, current_residuals_value, argument):
 
 
 def _solve_quadprog(dimension, solver_parameters, residuals, current_residuals_value, argument):
+    """Шаг как box-QP: min ½||Jp + r||² при относительных min/max."""
     if dimension == 1:
         raise RuntimeError("Dimension=1 should not be called with quadprog")
     if dimension == -1:
@@ -242,6 +259,7 @@ def _solve_quadprog(dimension, solver_parameters, residuals, current_residuals_v
 
 
 def _solve_coordinate_descent(dimension, residuals, current_residuals_value, argument, var_index: int) -> float:
+    """Одномерный МНК по столбцу якобиана для компоненты ``var_index``."""
     if dimension == 1:
         raise RuntimeError("Coordinate descent for dimension = 1 is senseless")
     if dimension == -1:
@@ -259,6 +277,7 @@ def _solve_coordinate_descent(dimension, residuals, current_residuals_value, arg
 
 
 def _trim_step(solver_parameters, argument, p):
+    """Последовательная обрезка шага: линейные, max, min, relative."""
     p = solver_parameters.linear_constraints.trim(argument, p)
     p = solver_parameters.constraints.trim_max(argument, p)
     p = solver_parameters.constraints.trim_min(argument, p)
@@ -267,6 +286,7 @@ def _trim_step(solver_parameters, argument, p):
 
 
 def _perform_vector_step(dimension, solver_parameters, optimization_step, residuals, result, analysis) -> bool:
+    """Один векторный шаг Ньютона или QP; True — остановить итерации."""
     if solver_parameters.residuals_norm_allow_early_exit and math.isfinite(solver_parameters.residuals_norm):
         if result.residuals_norm < solver_parameters.residuals_norm:
             result.residuals_norm_criteria = True
@@ -372,6 +392,7 @@ def _perform_vector_step(dimension, solver_parameters, optimization_step, residu
 
 
 def _perform_coordinate_descent_step(dimension, solver_parameters, residuals, result, analysis) -> bool:
+    """Цикл по компонентам: координатный спуск с линейным поиском на каждой."""
     has_succeeded_search_step = False
     p = var_zeros_like(result.argument)
     result.argument_increment_metric = 0.0
@@ -475,6 +496,7 @@ def _perform_coordinate_descent_step(dimension, solver_parameters, residuals, re
 
 
 def _solve(dimension, residuals, initial_argument, solver_parameters, result, analysis):
+    """Основной цикл Ньютона: невязка в x0, затем шаги и оценка балла."""
     result.argument = var_copy(initial_argument)
     if analysis is not None and solver_parameters.analysis.argument_history:
         analysis.argument_history.append(var_copy(result.argument))
@@ -501,6 +523,7 @@ def _solve(dimension, residuals, initial_argument, solver_parameters, result, an
         stop_iterations = _perform_vector_step(
             dimension, solver_parameters, False, residuals, result, analysis
         )
+        # Если Ньютон не нашёл шаг и ограничения активны — пробуем QP / координатный спуск.
         optimization_step = (
             solver_parameters.step_constraint_as_optimization
             and solver_parameters.constraints.has_active_constraints(result.argument)

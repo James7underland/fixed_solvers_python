@@ -1,3 +1,4 @@
+"""Реэкспорт хелперов: кубы, полиномы, math и строки."""
 from .cubic_equation_functions import (
     count_distinct_real_roots_cubic,
     find_cubic_extremums,

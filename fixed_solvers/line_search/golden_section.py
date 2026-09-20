@@ -12,6 +12,8 @@ __all__ = ["domain_violation", "golden_section_parameters", "golden_section_sear
 
 @dataclass
 class golden_section_parameters:
+    """Параметры золотого сечения: итерации, порог шума и критерий убывания."""
+
     maximum_step: float = 1.0
     iteration_count: int = 10
     function_decrement_factor: float = 2.0
@@ -19,21 +21,30 @@ class golden_section_parameters:
     fail_step_size: float = 0.05
 
     def step_on_search_fail(self) -> float:
+        """Запасной шаг при политике PerformMinStep."""
         return self.fail_step_size
 
     def get_final_section_length(self) -> float:
+        """Длина отрезка после ``iteration_count`` сжатий коэффициентом 0.618."""
         return 0.618 ** self.iteration_count
 
     def decrement_factor_criteria(self, f_current_min: float, f_0: float) -> bool:
+        """True, если минимум уменьшился относительно f(0) больше чем в ``function_decrement_factor`` раз."""
         if math.isfinite(self.function_decrement_factor):
             decrement = f_0 / f_current_min
             return decrement > self.function_decrement_factor
         return False
 
     def target_value_criteria(self, f_current_min: float) -> bool:
+        """True, если текущий минимум уже ниже порога шума ``function_target_value``."""
         return math.isfinite(self.function_target_value) and (f_current_min < self.function_target_value)
 
     def try_resolve_step_by_target_value(self, f_a: float, f_b: float, a: float, b: float) -> float | None:
+        """До цикла ЗС: если граница уже ниже порога шума, шаг известен сразу.
+
+        Returns:
+            None — порог не достигнут; иначе ``a`` или ``b``.
+        """
         if not math.isfinite(self.function_target_value):
             return None
         a_below = f_a < self.function_target_value
@@ -48,14 +59,18 @@ class golden_section_parameters:
 
 
 class golden_section_search:
+    """Локализация минимума унимодальной функции на отрезке [a, b]."""
+
     parameters_type = golden_section_parameters
 
     @staticmethod
     def get_alpha(a: float, b: float) -> float:
+        """Левая пробная точка золотого сечения."""
         return a + 2.0 / (3.0 + math.sqrt(5.0)) * (b - a)
 
     @staticmethod
     def get_beta(a: float, b: float) -> float:
+        """Правая пробная точка золотого сечения."""
         return a + 2.0 / (1.0 + math.sqrt(5.0)) * (b - a)
 
     @staticmethod
@@ -67,6 +82,7 @@ class golden_section_search:
         f_a: float,
         f_b: float = float("nan"),
     ) -> tuple[float, int]:
+        """Ищет шаг; ``(NaN, n)`` если минимум не лучше f(a)."""
         def check_convergence(f_min: float, f_0: float) -> bool:
             return parameters.decrement_factor_criteria(f_min, f_0) or parameters.target_value_criteria(f_min)
 

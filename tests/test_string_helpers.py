@@ -1,3 +1,4 @@
+"""Тесты строковых хелперов: UTF-8, replace, сериализация вектора."""
 from io import StringIO
 
 from fixed_solvers import (

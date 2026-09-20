@@ -1,4 +1,4 @@
-"""Строковые хелперы."""
+"""Строковые хелперы: UTF-8, замена подстрок, сериализация векторов."""
 
 from __future__ import annotations
 
@@ -8,13 +8,14 @@ from typing import Iterable, TextIO
 
 
 def string_ends_with(value: str, ending: str) -> bool:
+    """True, если ``value`` заканчивается на ``ending`` (пустой суффикс допускается)."""
     if len(ending) > len(value):
         return False
     return value.endswith(ending)
 
 
 def UTF8_to_wchar(text: str | bytes) -> str:
-    """Декодер UTF-8 побайтово."""
+    """Декодер UTF-8 побайтово, включая суррогатные пары на узком Unicode."""
     if isinstance(text, str):
         data = text.encode("utf-8")
     else:
@@ -37,6 +38,7 @@ def UTF8_to_wchar(text: str | bytes) -> str:
             codepoint = ch & 0x07
         index += 1
         nxt = data[index] if index < length else 0
+        # Кодпоинт готов, если следующий байт не continuation (10xxxxxx).
         if ((nxt & 0xC0) != 0x80) and (codepoint <= 0x10FFFF):
             if sys.maxunicode > 0xFFFF:
                 out.append(chr(codepoint))
@@ -49,7 +51,7 @@ def UTF8_to_wchar(text: str | bytes) -> str:
 
 
 def wchar_to_UTF8(text: str) -> str:
-    """Кодирование широкой строки в UTF-8."""
+    """Кодирование широкой строки в UTF-8 (суррогатные пары собираются в один кодпоинт)."""
     out = bytearray()
     codepoint = 0
     for ch in text:
@@ -96,14 +98,17 @@ def string2wide(text: str | bytes) -> str:
 
 
 def wide2string(text: str) -> str:
+    """Обратное к ``UTF8_to_wchar``: широкая строка → UTF-8."""
     return wchar_to_UTF8(text)
 
 
 def int2str(value) -> str:
+    """Целое в десятичную строку."""
     return str(value)
 
 
 def int2wstr(value) -> str:
+    """Целое в строку (в Python совпадает с ``int2str``)."""
     return str(value)
 
 
@@ -122,6 +127,7 @@ def string_replace(text: str, frm: str, to: str) -> str:
 
 
 def save_vector(stream: TextIO, values: Iterable) -> TextIO:
+    """Пишет длину, затем по значению на строку и пустую строку в конце."""
     values = list(values)
     stream.write(f"{len(values)}\n")
     for val in values:
@@ -131,6 +137,7 @@ def save_vector(stream: TextIO, values: Iterable) -> TextIO:
 
 
 def load_vector(stream: TextIO) -> list:
+    """Читает вектор в формате ``save_vector``; числа с точкой/экспонентой — float."""
     raw = stream.readline()
     if not raw:
         raise RuntimeError("bad v_size")

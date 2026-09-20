@@ -1,4 +1,4 @@
-"""Перечисления солверов."""
+"""Перечисления солверов и вспомогательные строки баллов сходимости."""
 
 from __future__ import annotations
 
@@ -6,22 +6,30 @@ from enum import IntEnum
 
 
 class step_constraint_algorithm_t(IntEnum):
+    """Алгоритм шага при активных ограничениях."""
+
     Quadprog = 0
     CoordinateDescent = 1
 
 
 class line_search_explore_domain_violation_action_t(IntEnum):
+    """Реакция диагностики line search на выход за ООФ."""
+
     record_nan = 0
     rethrow = 1
 
 
 class line_search_fail_action_t(IntEnum):
+    """Что делать, если линейный поиск не нашёл допустимый шаг."""
+
     TreatAsFail = 0
     TreatAsSuccess = 1
     PerformMinStep = 2
 
 
 class numerical_result_code_t(IntEnum):
+    """Код завершения численного метода."""
+
     NoNumericalError = 0
     IllConditionedMatrix = 1
     LargeConditionNumber = 2
@@ -37,6 +45,8 @@ class numerical_result_code_t(IntEnum):
 
 
 class convergence_score_t(IntEnum):
+    """Качественная оценка сходимости (больше — лучше)."""
+
     Excellent = 5
     Good = 4
     Satisfactory = 3
@@ -48,18 +58,24 @@ class convergence_score_t(IntEnum):
 
 
 class domain_discovery_mode_t(IntEnum):
+    """Режим золотого сечения при неизвестной области определения."""
+
     forbid_exit = 0
     require_connected_domain = 1
     allow_disconnected_domain = 2
 
 
 class fixed_bisectional_solution_type(IntEnum):
+    """Вариант скалярного корнеискателя."""
+
     Bisection = 0
     Secant = 1
     Combined = 2
 
 
 class nullable_bool_t(IntEnum):
+    """Трёхзначная логика: ложь / истина / не задано."""
+
     False_ = 0b0
     True_ = 0b1
     Undefined = 0b10
@@ -84,18 +100,22 @@ SCORE_STRINGS = {
 
 
 def get_score_strings() -> dict[convergence_score_t, str]:
+    """Подписи баллов сходимости."""
     return SCORE_STRINGS
 
 
 def get_score_wstrings() -> dict[convergence_score_t, str]:
+    """Тот же словарь подписей (широкие строки в Python совпадают с обычными)."""
     return SCORE_STRINGS
 
 
 def get_score_total_calculations(score: dict[convergence_score_t, int]) -> int:
+    """Сумма счётчиков по всем баллам."""
     return int(sum(score.values()))
 
 
 def get_score_string(score: dict[convergence_score_t, int]) -> str:
+    """Сводка долей баллов в процентах."""
     total = get_score_total_calculations(score)
     parts: list[str] = []
     for sc, count in score.items():
@@ -105,6 +125,7 @@ def get_score_string(score: dict[convergence_score_t, int]) -> str:
 
 
 def get_converged_percent(score: dict[convergence_score_t, int]) -> float:
+    """Доля расчётов с баллом Excellent/Good/Satisfactory, в процентах."""
     total = get_score_total_calculations(score)
     if total == 0:
         return 0.0
@@ -119,4 +140,5 @@ def get_converged_percent(score: dict[convergence_score_t, int]) -> float:
     return float(converged_count) / total * 100.0
 
 
+# Шаг линейного поиска меньше порога снижает балл сходимости.
 small_step_threshold = 0.1

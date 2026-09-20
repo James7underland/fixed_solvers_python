@@ -13,12 +13,14 @@ Coeffs = TypeVar("Coeffs")
 
 
 def value_in_range(value: float, range_begin: float, range_end: float) -> bool:
+    """True, если ``value`` лежит на отрезке независимо от порядка границ."""
     if range_begin > range_end:
         return value_in_range(value, range_end, range_begin)
     return range_begin <= value <= range_end
 
 
 def poly_integral_coefficients(poly_coeffs: Sequence[float]) -> list[float]:
+    """Коэффициенты первообразной: ``a_k / (k+1)`` со свободным членом 0."""
     n = len(poly_coeffs)
     result = [0.0] * (n + 1)
     for index in range(1, n + 1):
@@ -28,17 +30,20 @@ def poly_integral_coefficients(poly_coeffs: Sequence[float]) -> list[float]:
 
 @dataclass
 class function_range_t(Generic[Coeffs]):
+    """Один кусок кусочной функции: полуинтервал и коэффициенты на нём."""
     range_start: float
     range_end: float
     coefficients: Coeffs
 
 
 class ranged_function_t(Generic[Coeffs]):
+    """Кусочная функция: диапазоны отсортированы по ``range_start``."""
     def __init__(self, ranges: Sequence[function_range_t[Coeffs]] | None = None) -> None:
         self.ranges: list[function_range_t[Coeffs]] = list(ranges or [])
         self.ranges.sort(key=lambda item: item.range_start)
 
     def get_range_index(self, x: float) -> int:
+        """Индекс куска, содержащего ``x`` (по правому концу отрезка)."""
         for index, rng in enumerate(self.ranges):
             if x < rng.range_end:
                 if x > rng.range_end:
@@ -47,15 +52,18 @@ class ranged_function_t(Generic[Coeffs]):
         raise logic_error("approximation range not found")
 
     def get_ranges(self) -> list[function_range_t[Coeffs]]:
+        """Список кусков в порядке возрастания левой границы."""
         return self.ranges
 
     def get_whole_range(self) -> tuple[float, float]:
+        """Объединение всех кусков: от первой левой границы до последней правой."""
         if not self.ranges:
             raise RuntimeError("cannot get whole range for empty range list")
         return self.ranges[0].range_start, self.ranges[-1].range_end
 
 
 class ranged_polynom_t(ranged_function_t[Sequence[float]]):
+    """Кусочный полином с проверкой стыковки значений на границах кусков."""
     def __init__(
         self,
         ranges: Sequence[function_range_t[Sequence[float]]] | None = None,
@@ -91,16 +99,19 @@ class ranged_polynom_t(ranged_function_t[Sequence[float]]):
                 raise logic_error("dy between ranges is too large")
 
     def get_polynom_value_on_range(self, rng: function_range_t[Sequence[float]], x: float) -> float:
+        """Значение полинома куска ``rng`` в точке ``x`` с учётом gain/offset."""
         result = polyval(rng.coefficients, x)
         return result * self.gain + self.offset
 
     def get_polynom_value(self, x: float, rng: function_range_t[Sequence[float]] | None = None) -> float:
+        """Значение кусочного полинома; кусок ищется по ``x``, если не задан явно."""
         if rng is None:
             range_index = self.get_range_index(x)
             rng = self.ranges[range_index]
         return self.get_polynom_value_on_range(rng, x)
 
     def get_polynom_value_integral(self, x: float) -> float:
+        """Первообразная на текущем куске (кэширует интегральные коэффициенты)."""
         if not self.polynom_integral:
             for rng in self.ranges:
                 self.polynom_integral.append(poly_integral_coefficients(rng.coefficients))
@@ -109,12 +120,14 @@ class ranged_polynom_t(ranged_function_t[Sequence[float]]):
         return result * self.gain + self.offset * x
 
     def get_inv_range_index(self, y: float) -> int:
+        """Кусок, на котором значение полинома покрывает ``y``."""
         for index, bounds in enumerate(self.boundary_values):
             if value_in_range(y, bounds[0], bounds[1]):
                 return index
         raise logic_error("approximation range not found")
 
     def get_inv_polynom_value(self, y: float) -> float:
+        """Обратная функция: x такой, что p(x) = y, корень должен быть один на куске."""
         if not self.ranges:
             raise logic_error("No polynom ranges defined")
         range_index = self.get_inv_range_index(y)

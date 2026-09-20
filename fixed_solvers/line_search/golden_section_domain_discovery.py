@@ -12,18 +12,21 @@ from .golden_section import golden_section_parameters, golden_section_search
 
 @dataclass
 class golden_section_domain_discovery_parameters(golden_section_parameters):
+    """Параметры ЗС с режимом ООФ и флагом допуска неунимодальности."""
     mode: domain_discovery_mode_t = domain_discovery_mode_t.require_connected_domain
     allow_non_unimodal: bool = False
 
 
 @dataclass
 class _evaluation_t:
+    """Результат одной оценки: в ООФ / NaN / значение."""
     in_domain: bool = False
     has_nan: bool = False
     value: float = float("nan")
 
 
 class golden_section_search_domain_discovery:
+    """Золотое сечение, которое сужает отрезок при ``domain_violation``."""
     parameters_type = golden_section_domain_discovery_parameters
 
     @staticmethod
@@ -35,12 +38,14 @@ class golden_section_search_domain_discovery:
         f_a: float,
         f_b: float = float("nan"),
     ) -> tuple[float, int]:
+        """Ищет шаг при возможном выходе за ООФ; NaN-значение функции — ошибка расчёта."""
         def check_convergence(f_min: float, f_0: float) -> bool:
             return parameters.decrement_factor_criteria(f_min, f_0) or parameters.target_value_criteria(f_min)
 
         seen_domain_gap = False
 
         def evaluate(x: float) -> _evaluation_t:
+            """Вызов function(x): domain_violation сужает ООФ, NaN — сбой расчёта."""
             nonlocal seen_domain_gap
             result = _evaluation_t()
             try:
@@ -122,6 +127,7 @@ class golden_section_search_domain_discovery:
             allow_heuristic = parameters.mode == domain_discovery_mode_t.allow_disconnected_domain
 
             if not defined_alpha and not defined_beta:
+                # Эвристика ООФ: обе внутренние точки вне области — отбрасываем [alpha, b].
                 if not allow_heuristic:
                     return fail_result()
                 b = alpha

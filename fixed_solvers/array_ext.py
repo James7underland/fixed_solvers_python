@@ -1,4 +1,8 @@
-"""Операции над массивами фиксированной размерности."""
+"""Операции над массивами фиксированной размерности.
+
+Арифметика идёт поэлементно в циклах, чтобы порядок операций
+совпадал с обходом от младшего индекса к старшему.
+"""
 
 from __future__ import annotations
 
@@ -19,11 +23,12 @@ class array_maker:
 
 
 def make_array(n: int, value):
+    """Массив длины ``n``, заполненный ``value``; при ``n <= 0`` — пустой."""
     return array_maker.make_array(n, value)
 
 
 def create_array(dimension: int, getter: Callable[[int], object]) -> np.ndarray:
-    """Геттер вызывается с индексом элемента; порядок вызовов — с Dimension-1 до 0."""
+    """Собирает массив вызовами ``getter(i)``; порядок вызовов — с Dimension-1 до 0."""
     dimension = int(dimension)
     if dimension <= 0:
         return np.array([])
@@ -34,6 +39,7 @@ def create_array(dimension: int, getter: Callable[[int], object]) -> np.ndarray:
 
 
 def array_add(v1, v2):
+    """Поэлементная сумма; результат — копия ``v1``."""
     a = np.array(v1, copy=True)
     b = np.asarray(v2)
     for index in range(a.size):
@@ -42,6 +48,7 @@ def array_add(v1, v2):
 
 
 def array_sub(v1, v2):
+    """Поэлементная разность; результат — копия ``v1``."""
     a = np.array(v1, copy=True)
     b = np.asarray(v2)
     for index in range(a.reshape(-1).size):
@@ -50,6 +57,7 @@ def array_sub(v1, v2):
 
 
 def array_neg(v):
+    """Поэлементное отрицание; матрица обрабатывается по строкам рекурсивно."""
     a = np.array(v, copy=True)
     if a.ndim == 2:
         for index in range(a.shape[0]):
@@ -62,6 +70,7 @@ def array_neg(v):
 
 
 def array_scale(scalar: float, v):
+    """Умножение всех элементов на скаляр."""
     a = np.array(v, copy=True, dtype=float)
     flat = a.reshape(-1)
     for index in range(flat.size):
@@ -70,6 +79,7 @@ def array_scale(scalar: float, v):
 
 
 def array_div(v, scalar: float):
+    """Деление всех элементов на скаляр."""
     a = np.array(v, copy=True, dtype=float)
     flat = a.reshape(-1)
     for index in range(flat.size):
@@ -78,6 +88,7 @@ def array_div(v, scalar: float):
 
 
 def array_iadd(v1, v2):
+    """Прибавляет ``v2`` к ``v1`` на месте и возвращает ``v1``."""
     a = np.asarray(v1)
     b = np.asarray(v2)
     flat_a = a.reshape(-1)
@@ -88,6 +99,7 @@ def array_iadd(v1, v2):
 
 
 def inner_prod(v1, v2):
+    """Скалярное произведение; для скаляров — обычное умножение."""
     if np.ndim(v1) == 0 and np.ndim(v2) == 0:
         return float(v1) * float(v2)
     a = np.asarray(v1).reshape(-1)
@@ -109,7 +121,11 @@ def matvec(matrix, vector):
 
 
 class array_ref:
-    """Ссылочный массив: элементы указывают в исходный контейнер."""
+    """Ссылочный массив: элементы указывают в исходный контейнер.
+
+    Слоты — либо пары ``(container, index)``, либо готовые значения
+    из ``getter`` (вызывается с Dimension-1 до 0).
+    """
 
     def __init__(self, source=None, getter=None, dimension=None, refs=None):
         if refs is not None:
@@ -146,9 +162,11 @@ class array_ref:
         self._refs[index] = value
 
     def to_array(self) -> np.ndarray:
+        """Копия текущих значений слотов."""
         return np.array([self[i] for i in range(len(self))])
 
     def assign(self, other) -> None:
+        """Записывает скаляр во все слоты или копирует элементы ``other``."""
         if np.ndim(other) == 0:
             for index in range(len(self)):
                 self[index] = other
@@ -158,4 +176,5 @@ class array_ref:
             self[index] = other_arr[index]
 
     def as_scalar(self):
+        """Первый элемент (для одномерного случая)."""
         return self[0]

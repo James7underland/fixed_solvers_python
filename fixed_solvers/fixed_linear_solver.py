@@ -9,6 +9,7 @@ from .exceptions import logic_error
 
 
 def _check_finite(values) -> None:
+    """Предусловие: в решении нет NaN и бесконечностей."""
     arr = np.atleast_1d(np.asarray(values, dtype=float))
     if not np.all(np.isfinite(arr)):
         raise logic_error("infinite value")
@@ -19,6 +20,7 @@ def determinant3(
     a21, a22, a23,
     a31, a32, a33,
 ) -> float:
+    """Определитель 3×3 в развёрнутой форме."""
     return (
         + a11 * a22 * a33
         - a11 * a23 * a32
@@ -30,7 +32,7 @@ def determinant3(
 
 
 def solve_linear_system(A, b=None):
-    """Решение ax=b (скаляр), 2x2 и 3x3 методом Крамера, иначе numpy.linalg.solve.
+    """Решение ax=b (скаляр), 2×2 и 3×3 методом Крамера, иначе numpy.linalg.solve.
 
     Перегрузка пары (a, b): ``solve_linear_system((a, b))``.
     """

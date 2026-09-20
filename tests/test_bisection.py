@@ -1,3 +1,4 @@
+"""Тесты бисекции, секущих и verbose-трассировки."""
 import math
 
 import pytest

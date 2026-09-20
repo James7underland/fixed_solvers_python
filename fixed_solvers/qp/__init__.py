@@ -1,3 +1,4 @@
+"""Реэкспорт QP: Goldfarb–Idnani и CCS-представление разреженных матриц."""
 from .eiquadprog import (
     add_constraint,
     compute_d,

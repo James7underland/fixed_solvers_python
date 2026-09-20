@@ -1,3 +1,4 @@
+"""Тесты Ньютона при domain_violation и политике line_search_explore."""
 import math
 
 import numpy as np

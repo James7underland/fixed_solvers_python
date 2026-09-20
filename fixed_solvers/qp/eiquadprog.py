@@ -20,6 +20,7 @@ _INF = math.inf
 
 
 def _as_constraint_matrix(matrix, n: int, name: str) -> np.ndarray:
+    """Матрица ограничений n×k; пустая и 1D длины n приводятся к столбцу."""
     arr = np.asarray(matrix, dtype=float)
     if arr.size == 0:
         return np.zeros((n, 0), dtype=float)
@@ -33,6 +34,7 @@ def _as_constraint_matrix(matrix, n: int, name: str) -> np.ndarray:
 
 
 def _as_vector(vector, size: int, name: str) -> np.ndarray:
+    """Вектор заданной длины; пустой допустим только при size=0."""
     arr = np.asarray(vector, dtype=float).reshape(-1)
     if arr.size == 0 and size == 0:
         return np.zeros(0, dtype=float)
@@ -44,6 +46,7 @@ def _as_vector(vector, size: int, name: str) -> np.ndarray:
 
 
 def distance(a: float, b: float) -> float:
+    """Гипотенуза hypot(a, b) без переполнения."""
     a1 = abs(a)
     b1 = abs(b)
     if a1 > b1:
@@ -56,10 +59,12 @@ def distance(a: float, b: float) -> float:
 
 
 def compute_d(d: np.ndarray, J: np.ndarray, np_vec: np.ndarray) -> None:
+    """d = Jᵀ n — разложение направления в базисе Холецкого."""
     d[:] = J.T @ np_vec
 
 
 def update_z(z: np.ndarray, J: np.ndarray, d: np.ndarray, iq: int) -> None:
+    """Компонента шага в нуль-пространстве активных ограничений (столбцы J[:, iq:])."""
     n = z.size
     if iq >= n:
         z[:] = 0.0
@@ -68,12 +73,14 @@ def update_z(z: np.ndarray, J: np.ndarray, d: np.ndarray, iq: int) -> None:
 
 
 def update_r(R: np.ndarray, r: np.ndarray, d: np.ndarray, iq: int) -> None:
+    """Решает R r = d[:iq] для множителей при добавлении ограничения."""
     if iq <= 0:
         return
     r[:iq] = solve_triangular(R[:iq, :iq], d[:iq], lower=False, check_finite=False)
 
 
 def add_constraint(R: np.ndarray, J: np.ndarray, d: np.ndarray, iq: int, R_norm: float) -> tuple[bool, int, float]:
+    """Givens-повороты: вставляет столбец в R и обновляет J; False при вырождении."""
     n = J.shape[0]
     for j in range(n - 1, iq, -1):
         cc = d[j - 1]
@@ -113,6 +120,7 @@ def delete_constraint(
     iq: int,
     l: int,
 ) -> int:
+    """Удаляет ограничение ``l`` из активного набора и восстанавливает треугольность R."""
     n = R.shape[0]
     qq = 0
     for i in range(p, iq):
@@ -161,6 +169,7 @@ def delete_constraint(
 
 
 def solve_quadprog2(chol, c1: float, g0: np.ndarray, CE, ce0, CI, ci0, x: np.ndarray) -> float:
+    """Dual Goldfarb–Idnani при уже посчитанном Холецком G; пишет решение в ``x``."""
     n = int(np.asarray(g0).reshape(-1).size)
     g0 = np.asarray(g0, dtype=float).reshape(-1)
     CE = _as_constraint_matrix(CE, n, "CE")
@@ -230,6 +239,7 @@ def solve_quadprog2(chol, c1: float, g0: np.ndarray, CE, ce0, CI, ci0, x: np.nda
 
     ss = 0.0
     ip = 0
+    # Метки l1 / l2 / l2a — фазы dual-метода: проверка KKT, выбор нарушителя, шаг.
     label = "l1"
     while True:
         if label == "l1":
@@ -324,6 +334,7 @@ def solve_quadprog2(chol, c1: float, g0: np.ndarray, CE, ce0, CI, ci0, x: np.nda
 
 
 def solve_quadprog(G, g0, CE, ce0, CI, ci0, x) -> float:
+    """Решает QP: Холецкий G, затем dual-метод; решение пишется в ``x``."""
     G = np.array(G.toarray() if hasattr(G, "toarray") else G, dtype=float, copy=True)
     g0 = np.asarray(g0, dtype=float).reshape(-1)
     x_arr = np.array(np.asarray(x, dtype=float).reshape(-1), dtype=float, copy=True)

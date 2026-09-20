@@ -12,7 +12,7 @@ from .algebra import default_var, inner_prod
 from .fixed_linear_solver import solve_linear_system
 from .helpers.math_helpers import sgn
 
-eps_constraints = 1e-8
+eps_constraints = 1e-8  # допуск «на границе» для box-ограничений
 
 
 def prepare_box_constraints(
@@ -20,6 +20,7 @@ def prepare_box_constraints(
     maximum: Sequence[tuple[int, float]],
     callback: Callable[[int, float, float], None],
 ) -> None:
+    """Сливает отсортированные списки min/max и вызывает callback(index, min, max)."""
     iimin = 0
     iimax = 0
     have_min = iimin < len(minimum)
@@ -82,6 +83,7 @@ class fixed_solver_constraints:
             self.maximum = default_var(dimension)
 
     def get_constraint_count(self) -> int:
+        """Число заданных конечных границ min и max."""
         if self.dimension == -1:
             return len(self.minimum) + len(self.maximum)
         count = 0
@@ -96,6 +98,7 @@ class fixed_solver_constraints:
         return count
 
     def get_relative_constraints(self, current_argument) -> tuple[list[tuple[int, float]], list[tuple[int, float]]]:
+        """Границы шага относительно текущей точки: min/max минус argument."""
         if self.dimension == 1:
             raise RuntimeError("not impl")
         if self.dimension == -1:
@@ -116,6 +119,7 @@ class fixed_solver_constraints:
         argument_dimension: int,
         boundaries: Sequence[tuple[int, float]],
     ) -> tuple[np.ndarray, np.ndarray]:
+        """Матрица A и вектор b для ограничений x_i <= value (строка — единица в столбце i)."""
         A = np.zeros((len(boundaries), argument_dimension), dtype=float)
         b = np.zeros(len(boundaries), dtype=float)
         for row_index, (idx, value) in enumerate(boundaries):
@@ -124,6 +128,7 @@ class fixed_solver_constraints:
         return A, b
 
     def get_inequalities_constraints_dense(self, argument_size: int) -> tuple[np.ndarray, np.ndarray]:
+        """Плотные неравенства max и -min в виде A x <= B."""
         n = argument_size
         A = np.zeros((self.get_constraint_count(), n), dtype=float)
         B = np.zeros(self.get_constraint_count(), dtype=float)
@@ -138,6 +143,7 @@ class fixed_solver_constraints:
         return A, B
 
     def get_inequalities_constraints_sparse(self, current_argument) -> tuple[sparse.csc_matrix, np.ndarray]:
+        """Разреженные неравенства относительно текущей точки: A p <= b."""
         arg = np.asarray(current_argument, dtype=float).reshape(-1)
         n = int(arg.size)
         rows: list[int] = []
@@ -180,6 +186,7 @@ class fixed_solver_constraints:
         return A_matrix, b_vec
 
     def has_active_constraints(self, argument) -> bool:
+        """True, если какая-либо компонента лежит на границе с допуском ``eps_constraints``."""
         if self.dimension == -1:
             for index, min_value in self.minimum:
                 if abs(float(argument[index]) - min_value) < eps_constraints:
@@ -206,6 +213,7 @@ class fixed_solver_constraints:
         return False
 
     def trim_relative(self, increment) -> Any:
+        """Масштабирует шаг, чтобы ни одна компонента не превысила relative_boundary."""
         if self.dimension == 1:
             if math.isnan(float(self.relative_boundary)):
                 return increment
@@ -243,6 +251,7 @@ class fixed_solver_constraints:
         return increment
 
     def trim_max(self, argument, increment) -> Any:
+        """Укорачивает шаг, чтобы argument + increment не превысил верхнюю границу."""
         if self.dimension == 1:
             if math.isnan(float(self.maximum)):
                 return increment
@@ -284,6 +293,7 @@ class fixed_solver_constraints:
         return increment
 
     def trim_min(self, argument, increment) -> Any:
+        """Укорачивает шаг, чтобы argument + increment не ушёл ниже нижней границы."""
         if self.dimension == 1:
             if math.isnan(float(self.minimum)):
                 return increment
@@ -325,6 +335,7 @@ class fixed_solver_constraints:
         return increment
 
     def ensure_constraints(self, argument) -> Any:
+        """Проецирует точку на box: clip по min/max."""
         if self.dimension == 1:
             value = float(argument)
             if not math.isnan(float(self.maximum)):
@@ -351,6 +362,7 @@ class fixed_solver_constraints:
 
 
 class fixed_linear_constraints:
+    """Линейные ограничения ax <= b; trim реализован для 2D и одного неравенства."""
     def __init__(self, dimension: int, count: int = 0) -> None:
         self.dimension = int(dimension)
         self.count = int(count)
@@ -362,17 +374,20 @@ class fixed_linear_constraints:
             self.b = float("nan")
 
     def check_constraint_satisfaction(self, x) -> bool:
+        """True, если точка удовлетворяет ax <= b (или ограничение не задано)."""
         if math.isfinite(self.b):
             return inner_prod(self.a, x) <= self.b
         return True
 
     def check_constraint_border(self, x) -> bool:
+        """True, если точка на границе ax = b (с допуском) или ограничение не задано."""
         if math.isfinite(self.b):
             return abs(inner_prod(self.a, x) - self.b) < eps_constraints
         return True
 
     @staticmethod
     def get_line_coeffs(p1, p2) -> tuple[np.ndarray, float]:
+        """Коэффициенты прямой через две точки: a = (-k, 1), b = y - k x."""
         x1, y1 = float(p1[0]), float(p1[1])
         x2, y2 = float(p2[0]), float(p2[1])
         k = (y2 - y1) / (x2 - x1)
@@ -380,6 +395,7 @@ class fixed_linear_constraints:
         return np.array([-k, 1.0], dtype=float), b
 
     def trim(self, x, dx) -> Any:
+        """Обрезает 2D-шаг по полуплоскости: проекция, если старт на границе, иначе пересечение."""
         if self.count == 0 or self.a is None:
             return dx
         if not math.isfinite(self.b):

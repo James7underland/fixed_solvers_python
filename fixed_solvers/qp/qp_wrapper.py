@@ -45,6 +45,7 @@ def solve_quadprog_box(
     b = np.zeros(n_cons, dtype=float)
     row = 0
     for index, min_bound in minimum:
+        # x_i >= min  ↔  -x_i <= -min
         A[row, int(index)] = -1.0
         b[row] = -float(min_bound)
         row += 1

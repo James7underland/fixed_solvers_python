@@ -1,3 +1,4 @@
+"""Тесты золотого сечения с обнаружением ООФ и режимами domain_discovery."""
 import math
 
 import pytest

@@ -8,15 +8,20 @@ import math
 
 @dataclass
 class divider_search_parameters:
+    """Параметры дробления: полный шаг, нижняя граница и делитель."""
+
     maximum_step: float = 1.0
     minimum_step: float = 0.05
     step_divider: float = 1.5
 
     def step_on_search_fail(self) -> float:
+        """Шаг, который солвер берёт при политике PerformMinStep."""
         return self.minimum_step
 
 
 class divider_search:
+    """Уменьшает alpha, пока целевая функция убывает относительно f(a)."""
+
     parameters_type = divider_search_parameters
 
     @staticmethod
@@ -28,6 +33,7 @@ class divider_search:
         f_a: float,
         f_b: float = float("nan"),
     ) -> tuple[float, int]:
+        """Ищет шаг на [a, b]; возвращает (alpha, число оценок) или (NaN, ...)."""
         found_better_than_initial = False
         function_initial = f_a
         alpha_curr = b
@@ -44,6 +50,7 @@ class divider_search:
             if function_current < function_initial:
                 found_better_than_initial = True
             if found_better_than_initial:
+                # После первого улучшения берём предыдущий шаг, как только функция выросла.
                 if function_current > function_prev:
                     return alpha_prev, index
                 continue

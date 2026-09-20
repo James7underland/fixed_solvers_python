@@ -1,3 +1,4 @@
+"""Тесты QP Goldfarb–Idnani, box-ограничений и CCS."""
 import math
 
 import numpy as np

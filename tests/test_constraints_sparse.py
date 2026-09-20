@@ -1,3 +1,4 @@
+"""Тесты разреженной сборки box-ограничений."""
 import numpy as np
 
 from fixed_solvers import fixed_solver_constraints

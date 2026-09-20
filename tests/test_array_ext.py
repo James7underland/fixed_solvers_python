@@ -1,3 +1,4 @@
+"""Тесты поэлементных операций array_ext и array_ref."""
 import numpy as np
 
 from fixed_solvers import (

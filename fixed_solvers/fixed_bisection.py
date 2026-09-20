@@ -23,6 +23,7 @@ _FLT_EPSILON = float(np.finfo(np.float32).eps)
 
 @dataclass
 class fixed_bisectional_parameters_t:
+    """Параметры бисекции / секущих: точность, границы и пороги комбинированного режима."""
     argument_history: bool = False
     residual_history: bool = False
     argument_precision: float = _DBL_EPSILON
@@ -38,6 +39,7 @@ class fixed_bisectional_parameters_t:
     check_boundary_before: bool = True
 
     def secant_thresholds_satisfied(self, x_lower: float, x_upper: float) -> bool:
+        """True, если ширина отрезка попадает в [secant_treshhold_min, secant_treshhold_max]."""
         delta_current = abs(x_upper - x_lower)
         max_threshold_satisfied = (
             delta_current < self.secant_treshhold_max if math.isfinite(self.secant_treshhold_max) else True
@@ -49,6 +51,7 @@ class fixed_bisectional_parameters_t:
 
 
 class fixed_bisection_result_t:
+    """Результат скалярного корнеискателя: код, балл, аргумент, невязка."""
     def __init__(self, dimension: int = 1) -> None:
         self.dimension = int(dimension)
         self.result_code = numerical_result_code_t.NotConverged
@@ -62,12 +65,14 @@ class fixed_bisection_result_t:
 
 
 class fixed_bisection_result_analysis_t:
+    """История аргумента и невязки по итерациям."""
     def __init__(self) -> None:
         self.residual_history = []
         self.argument_history = []
 
 
 class _BisectionView:
+    """Солвер бисекции для выбранной размерности (скаляр — 1)."""
     def __init__(self, dimension: int) -> None:
         self.dimension = int(dimension)
 
@@ -78,6 +83,7 @@ class _BisectionView:
 
 
 class _BisectionFactory:
+    """Фабрика: ``fixed_bisectional[1].solve(...)`` или ``fixed_bisectional.solve(...)``."""
     def __getitem__(self, dimension: int) -> _BisectionView:
         return _BisectionView(dimension)
 
@@ -89,14 +95,17 @@ fixed_bisectional = _BisectionFactory()
 
 
 def _get_max_allowed_iterations(initial_delta: float, argument_precision: float) -> int:
+    """Оценка числа делений отрезка пополам до заданной точности."""
     return int(math.floor(math.log(1.0 / argument_precision) / math.log(2.0)))
 
 
 def _is_within_machine_epsilon(x1: float, x2: float) -> bool:
+    """True, если |x1-x2| не больше машинного эпсилона относительно масштаба точек."""
     return abs(x1 - x2) <= max(abs(x2), abs(x1)) * _DBL_EPSILON
 
 
 def _next_argument_secant(x1, x2, y1, y2):
+    """Следующая точка методом секущих; NaN, если точка вышла за (x1, x2)."""
     denom = abs(y2) + abs(y1)
     x3 = (abs(y2) / denom * x1 + abs(y1) / denom * x2)
     if not math.isfinite(x3):
@@ -107,6 +116,7 @@ def _next_argument_secant(x1, x2, y1, y2):
 
 
 def _next_argument_bisection(x1, x2, y1, y2):
+    """Середина отрезка."""
     x3 = 0.5 * (x2 + x1)
     if not math.isfinite(x3):
         return float("nan"), numerical_result_code_t.NumericalNanValues
@@ -114,6 +124,7 @@ def _next_argument_bisection(x1, x2, y1, y2):
 
 
 def _next_argument_value(solver_parameters, x1, x2, y1, y2, iterations, use_secant_ref: list):
+    """Выбирает бисекцию, секущие или комбинированный шаг; Illinois включается снаружи."""
     if solver_parameters.verbose:
         print(f"next_argument_value d:{abs(x2 - x1)}", file=sys.stdout)
     use_secant_ref[0] = False
@@ -138,6 +149,7 @@ def _next_argument_value(solver_parameters, x1, x2, y1, y2, iterations, use_seca
 
 
 def _residual_exit_criterium(solver_parameters, r, argument, analysis, result) -> bool:
+    """True, если невязка NaN или уже меньше residual_precision (успех)."""
     if solver_parameters.verbose:
         print(f"check:{r} with:{argument}", file=sys.stderr)
     if analysis is not None:
@@ -158,6 +170,7 @@ def _residual_exit_criterium(solver_parameters, r, argument, analysis, result) -
 
 
 def _solve_limited(solver_parameters, residuals, x1, x2, result, analysis) -> None:
+    """Итерации на отрезке [x1, x2] с возможным Illinois-ослаблением секущих."""
     x3 = result.argument
     y1 = residuals.residuals(x1)
     y2 = residuals.residuals(x2)
@@ -199,6 +212,7 @@ def _solve_limited(solver_parameters, residuals, x1, x2, result, analysis) -> No
         if y3 > 0:
             x1 = x3
             y1 = y3
+            # Illinois: при двух положительных невязках подряд ослабляем противоположный конец.
             if use_secant and solver_parameters.use_Illinois and previous_residual_sign == +1:
                 y2 /= 2.0
             previous_residual_sign = +1
@@ -228,6 +242,7 @@ def _solve_limited(solver_parameters, residuals, x1, x2, result, analysis) -> No
 
 
 def _solve(solver_parameters, initial_argument, residuals, result, analysis) -> None:
+    """Проверяет границы, сужает отрезок по знаку невязки и запускает итерации."""
     minx = solver_parameters.argument_limit_min
     maxx = solver_parameters.argument_limit_max
     if not math.isfinite(minx):
@@ -256,6 +271,7 @@ def _solve(solver_parameters, initial_argument, residuals, result, analysis) -> 
     if _residual_exit_criterium(solver_parameters, r, result.argument, analysis, result):
         return
 
+    # Знак невязки сужает отрезок: корень ищем там, где функция меняет знак.
     if r > 0:
         minx = result.argument
     if r < 0:

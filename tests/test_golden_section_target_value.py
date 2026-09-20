@@ -1,3 +1,4 @@
+"""Тесты порога шума function_target_value в золотом сечении."""
 import math
 
 from fixed_solvers import (

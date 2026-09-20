@@ -1,3 +1,4 @@
+"""Тесты ensure_abs_epsilon_value."""
 from fixed_solvers import ensure_abs_epsilon_value
 
 

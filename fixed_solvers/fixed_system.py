@@ -19,8 +19,10 @@ from .algebra import (
 
 
 class fixed_system_types:
+    """Фабрика аргумента той же формы, что у системы."""
     @staticmethod
     def default_var(dimension: int, value: float = float("nan"), size: int | None = None):
+        """Аргумент той же формы, что у системы с данной dimension."""
         return default_var(dimension, value, size)
 
 
@@ -41,26 +43,32 @@ class fixed_system_t(ABC):
         self.epsilon = float(epsilon)
 
     def objective_function(self, r) -> float:
+        """Целевая функция: квадрат невязки (норма r²)."""
         if self.dimension == 1 and is_scalar(r):
             value = float(r)
             return value * value
         return squared_norm(r)
 
     def __call__(self, x) -> float:
+        """Значение целевой функции в точке ``x``."""
         r = self.residuals(x)
         return self.objective_function(r)
 
     @abstractmethod
     def residuals(self, x):
+        """Вектор (или скаляр) невязок r(x)."""
         raise NotImplementedError
 
     def jacobian_dense(self, x):
+        """Плотный якобиан; по умолчанию — двусторонняя численная производная."""
         return self.jacobian_dense_numeric(x)
 
     def jacobian_sparse(self, x) -> list[tuple[int, int, float]]:
+        """Разреженный якобиан тройками (row, col, value)."""
         return self.jacobian_sparse_numeric(x)
 
     def jacobian_sparse_column(self, reduced, desired_col_index: int) -> list[tuple[int, int, float]]:
+        """Один столбец разреженного якобиана (колонка приводится к индексу 0)."""
         J = self.jacobian_sparse(reduced)
         result = []
         for row, col, value in J:
@@ -69,6 +77,7 @@ class fixed_system_t(ABC):
         return result
 
     def jacobian_column(self, x, desired_col_index: int):
+        """Численный столбец плотного якобиана по одной компоненте аргумента."""
         if self.dimension == 1:
             raise RuntimeError("Jacobian column for dimension = 1 is sensless")
         arg = var_copy(x)
@@ -82,18 +91,23 @@ class fixed_system_t(ABC):
         return (f_plus - f_minus) / (2.0 * e)
 
     def custom_success_criteria(self, r, x, p) -> bool:
+        """Дополнительный критерий успеха; по умолчанию выключен."""
         return False
 
     def custom_line_research(self, argument, argument_increment) -> None:
+        """Крючок диагностики траектории шага (по умолчанию пустой)."""
         return None
 
     def custom_line_search_start(self) -> None:
+        """Крючок перед линейным поиском."""
         return None
 
     def custom_line_search_sample(self, alpha: float, x_alpha) -> None:
+        """Крючок на пробной точке линейного поиска."""
         return None
 
     def jacobian_dense_numeric(self, x):
+        """Центральные разности по каждой компоненте; для dimension=1 — скаляр."""
         if self.dimension == 1:
             return float(two_sided_derivative(self.residuals, float(x), self.epsilon))
 
@@ -114,6 +128,7 @@ class fixed_system_t(ABC):
         return J
 
     def jacobian_sparse_numeric(self, x) -> list[tuple[int, int, float]]:
+        """Численный якобиан в COO-тройках (включая нули столбца)."""
         if self.dimension == 1:
             raise RuntimeError("Must not be called")
         arg = var_copy(x)
@@ -134,6 +149,7 @@ class fixed_system_t(ABC):
 
 
 class fixed_scalar_wrapper_t(fixed_system_t):
+    """Обёртка скалярной функции f(x) как системы dimension=1."""
     dimension = 1
 
     def __init__(self, function: Callable[[float], float], epsilon: float = float("nan")) -> None:
@@ -143,4 +159,5 @@ class fixed_scalar_wrapper_t(fixed_system_t):
             self.epsilon = float(epsilon)
 
     def residuals(self, x):
+        """Значение обёрнутой скалярной функции."""
         return self.function(float(x))

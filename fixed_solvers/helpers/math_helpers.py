@@ -1,4 +1,4 @@
-"""Математические хелперы."""
+"""Математические хелперы: знаки, полиномы, проверка конечности."""
 
 from __future__ import annotations
 
@@ -11,10 +11,12 @@ from ..enums import nullable_bool_t
 
 
 def to_nullable_bool(value: bool) -> nullable_bool_t:
+    """Обычный bool → трёхзначное значение (Undefined не возникает)."""
     return nullable_bool_t.True_ if value else nullable_bool_t.False_
 
 
 def nullable_bool_to_str(nb: nullable_bool_t) -> str:
+    """Строка ``True`` / ``False`` / ``Undefined``."""
     if nb == nullable_bool_t.True_:
         return "True"
     if nb == nullable_bool_t.False_:
@@ -23,10 +25,12 @@ def nullable_bool_to_str(nb: nullable_bool_t) -> str:
 
 
 def pseudo_sgn(val) -> int:
+    """Знак с нулём как плюс: ``+1`` при ``val >= 0``, иначе ``-1``."""
     return 2 * (val >= 0) - 1
 
 
 def ensure_abs_epsilon_value(value, epsilon=1e-6):
+    """Если ``|value| < epsilon``, возвращает ``sign(value) * epsilon``."""
     abs_value = abs(value)
     if abs_value >= epsilon:
         return value
@@ -34,6 +38,7 @@ def ensure_abs_epsilon_value(value, epsilon=1e-6):
 
 
 def inv_vector(v: np.ndarray) -> np.ndarray:
+    """Покомпонентное ``1/v`` (копия входного массива)."""
     result = np.array(v, dtype=float, copy=True)
     result = 1.0 / result
     return result
@@ -43,27 +48,31 @@ invVectorXd = inv_vector
 
 
 def sgn(val) -> int:
+    """Классический знак: -1 / 0 / +1."""
     return int((0 < val) - (val < 0))
 
 
 def sqr(x: float) -> float:
+    """Квадрат."""
     return x * x
 
 
 def ssqrt(x: float) -> float:
+    """Знаковый квадратный корень: ``sign(x) * sqrt(|x|)``."""
     if x >= 0:
         return math.sqrt(x)
     return -math.sqrt(-x)
 
 
 def ssqr(x: float) -> float:
+    """Знаковый квадрат: ``sign(x) * x^2``."""
     if x >= 0:
         return sqr(x)
     return -sqr(x)
 
 
 def polyval(poly_coeffs: Sequence[float], x: float) -> float:
-    # НЕ используется формат Matlab: индекс коэффициента = степень.
+    """Значение полинома; индекс коэффициента равен степени (не формат Matlab)."""
     n = len(poly_coeffs)
     if n == 0:
         return 0.0
@@ -76,6 +85,7 @@ def polyval(poly_coeffs: Sequence[float], x: float) -> float:
 
 
 def poly_differentiate(poly_coeffs: Sequence[float]) -> list[float]:
+    """Коэффициенты производной: ``k * a_k`` сдвигаются на одну степень вниз."""
     derivative = [0.0] * (len(poly_coeffs) - 1)
     for index in range(len(derivative)):
         k = float(index + 1)
@@ -85,6 +95,7 @@ def poly_differentiate(poly_coeffs: Sequence[float]) -> list[float]:
 
 
 def has_not_finite(value) -> bool:
+    """True, если среди компонент есть NaN или бесконечность."""
     if np.ndim(value) == 0:
         return not math.isfinite(float(value))
     arr = np.asarray(value, dtype=float)

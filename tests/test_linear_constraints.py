@@ -1,3 +1,4 @@
+"""Тесты линейных ограничений ax ≤ b и обрезки 2D-шага."""
 import numpy as np
 
 from fixed_solvers import fixed_linear_constraints
