@@ -14,6 +14,12 @@ from fixed_solvers import (
 
 
 class simple_linear(fixed_system_t):
+    """Линейная невязка:
+
+            r(x)  =  5 − x  =  0     →     x = 5
+
+    Отрезок поиска [0, 7.8] содержит корень внутри, не на границе.
+    """
     dimension = 1
 
     def residuals(self, x):
@@ -24,6 +30,10 @@ class simple_linear(fixed_system_t):
 
 
 class simple_quadratic(fixed_system_t):
+    """Квадратная невязка на положительной полуоси:
+
+            r(x)  =  3.5 − x²  =  0     →     x = √3.5  (берём x > 0)
+    """
     dimension = 1
 
     def residuals(self, x):
@@ -34,7 +44,7 @@ class simple_quadratic(fixed_system_t):
 
 
 def test_solves_linear_equation():
-    # Arrange
+    # Arrange: секущие с порогом 0 итераций — сразу Illinois/секущая на линейной r.
     eqn = simple_linear()
     p = fixed_bisectional_parameters_t()
     p.argument_limit_min = 0
@@ -52,7 +62,7 @@ def test_solves_linear_equation():
 
 
 def test_solves_quadratic_equation():
-    # Arrange
+    # Arrange: Combined — бисекция, пока ширина не в [0.001, 0.01], потом секущие.
     eqn = simple_quadratic()
     p = fixed_bisectional_parameters_t()
     p.argument_limit_min = 0

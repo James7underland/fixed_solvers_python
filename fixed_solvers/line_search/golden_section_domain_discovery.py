@@ -1,4 +1,19 @@
-"""Золотое сечение с обнаружением области определения."""
+"""Золотое сечение при неизвестной области определения (ООФ).
+
+Инвариант: левая граница a всегда в ООФ. Точки α, β, b могут выбросить
+domain_violation. NaN в значении — ошибка расчёта, не «вне ООФ».
+
+Режимы:
+  forbid_exit              — любой выход за ООФ → RuntimeError
+  require_connected_domain — ООФ связна: повторный «провал» после дырки → logic_error
+  allow_disconnected_domain — эвристика: отбрасываем кусок, где минимума точно нет
+
+Сужение отрезка (унимодальность). Точки a < α < β < b:
+
+  все в ООФ, f(α) < f(β)  →  новый [a, β]
+  все в ООФ, f(α) ≥ f(β)  →  новый [α, b]
+  α и β вне ООФ           →  эвристика: [a, α]  (минимум не правее первой дырки)
+"""
 
 from __future__ import annotations
 
@@ -40,6 +55,7 @@ class golden_section_search_domain_discovery:
     ) -> tuple[float, int]:
         """Ищет шаг при возможном выходе за ООФ; NaN-значение функции — ошибка расчёта."""
         def check_convergence(f_min: float, f_0: float) -> bool:
+            # Те же два критерия, что у обычного ЗС: сильное падение или порог шума.
             return parameters.decrement_factor_criteria(f_min, f_0) or parameters.target_value_criteria(f_min)
 
         seen_domain_gap = False
@@ -53,10 +69,13 @@ class golden_section_search_domain_discovery:
                 result.in_domain = True
                 result.has_nan = not math.isfinite(result.value)
             except domain_violation:
+                # Это маркер ООФ, не Exception: широкий except его не съест.
                 if parameters.mode == domain_discovery_mode_t.forbid_exit:
                     raise RuntimeError("domain violation detected in forbid_exit mode")
                 result.in_domain = False
                 if parameters.mode == domain_discovery_mode_t.require_connected_domain:
+                    # Связная ООФ: после первого провала (x > a) второй провал запрещён,
+                    # если уже «выходили и вернулись» — seen_domain_gap.
                     if x > a:
                         if seen_domain_gap:
                             raise logic_error("disconnected domain detected")
@@ -110,6 +129,9 @@ class golden_section_search_domain_discovery:
             update_minimum(alpha, alpha_eval, beta, beta_eval)
 
             def check_local_max(allow_non_unimodal: bool) -> None:
+                # Локальный максимум внутри [a, b] ломает унимодальность ЗС:
+                #   f(α) > f(a) и f(α) > f(β)  →  горб в α
+                #   f(β) > f(α) и f(β) > f(b)  →  горб в β
                 if allow_non_unimodal:
                     return
                 if not alpha_eval.in_domain or not beta_eval.in_domain:
@@ -127,12 +149,13 @@ class golden_section_search_domain_discovery:
             allow_heuristic = parameters.mode == domain_discovery_mode_t.allow_disconnected_domain
 
             if not defined_alpha and not defined_beta:
-                # Эвристика ООФ: обе внутренние точки вне области — отбрасываем [alpha, b].
+                # Эвристика ООФ: обе внутренние точки вне области — отбрасываем [α, b].
                 if not allow_heuristic:
                     return fail_result()
                 b = alpha
                 b_eval = alpha_eval
             elif not defined_alpha:
+                # α вне ООФ, β в ООФ: смотрим, куда сдвигать по f(β) vs f(a), f(b).
                 if defined_b and (beta_eval.value > b_eval.value):
                     a = beta
                     f_a = beta_eval.value
@@ -142,6 +165,7 @@ class golden_section_search_domain_discovery:
                 else:
                     raise logic_error("minimum is not in [a, b]")
             elif not defined_beta:
+                # β вне ООФ. Если b тоже вне — нужна эвристика (отрезать справа).
                 if not defined_b:
                     if not allow_heuristic:
                         return fail_result()
@@ -161,6 +185,7 @@ class golden_section_search_domain_discovery:
                     else:
                         raise logic_error("minimum is not in [a, b]")
             else:
+                # Классическое ЗС: все внутренние точки в ООФ.
                 if alpha_eval.value < beta_eval.value:
                     b = beta
                     b_eval = beta_eval

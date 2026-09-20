@@ -8,7 +8,7 @@ from fixed_solvers import get_sparse_matrix_CCS, solve_quadprog, solve_quadprog_
 
 
 def test_solves_unconstrained_qp():
-    # Arrange
+    # Arrange: без ограничений (G=I) min ½·(x²+y²)−3x−4y; ∇=(x−3,y−4)=0 → (3,4).
     G = np.eye(2)
     g0 = np.array([-3.0, -4.0])
     x = np.zeros(2)
@@ -25,7 +25,7 @@ def test_solves_unconstrained_qp():
 
 
 def test_solves_equality_and_inequality_quadprog_example():
-    # Arrange: QP с одним равенством и тремя неравенствами
+    # Arrange: min 2x²−2xy+2y²+6x при x+y=3, x≥0, y≥0, x+y≥2; оптимум (1,2).
     G = np.array([[4.0, -2.0], [-2.0, 4.0]])
     g0 = np.array([6.0, 0.0])
     CE = np.array([[1.0], [1.0]])
@@ -40,7 +40,7 @@ def test_solves_equality_and_inequality_quadprog_example():
 
 
 def test_solves_box_qp_with_goldfarb_idnani():
-    # Arrange
+    # Arrange: без box было бы (3, 4); потолок x₀ ≤ 1 сдвигает первую компоненту на границу.
     H = sparse.eye(2, format="csc")
     f = np.array([-3.0, -4.0])
     # Act
@@ -50,7 +50,7 @@ def test_solves_box_qp_with_goldfarb_idnani():
 
 
 def test_solves_box_qp_with_lower_bound():
-    # Arrange
+    # Arrange: пол x₁ ≥ 5, свободный оптимум (3, 4) → (3, 5)
     H = np.eye(2)
     f = np.array([-3.0, -4.0])
     # Act
@@ -60,7 +60,7 @@ def test_solves_box_qp_with_lower_bound():
 
 
 def test_returns_infinity_when_qp_is_infeasible():
-    # Arrange
+    # Arrange: x ≥ 2 и x ≤ −1 одновременно — пустое множество, dual-метод даёт +∞
     G = np.eye(1)
     g0 = np.array([0.0])
     x = np.zeros(1)
@@ -75,7 +75,8 @@ def test_returns_infinity_when_qp_is_infeasible():
 
 
 def test_converts_sparse_matrix_to_ccs():
-    # Arrange
+    # Arrange: CSC по столбцам: col0=(2,7), col1=(5), col2=(3,9)
+    # cols = [0, 2, 3, 5] — стартовые позиции + длина
     matrix = np.array([[2.0, 0.0, 3.0], [0.0, 5.0, 0.0], [7.0, 0.0, 9.0]])
     # Act
     values, rows, cols = get_sparse_matrix_CCS(matrix)

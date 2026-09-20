@@ -12,6 +12,8 @@ from fixed_solvers import (
 
 def test_returns_zero_step_when_both_boundary_values_below_target():
     # Arrange
+    # Оба конца ниже 1e-8 → try_resolve возвращает b (= 1.0), итераций 0.
+    # (это ветка «оба в шуме», не α=0.)
     parameters = golden_section_parameters()
     parameters.iteration_count = 10
     parameters.function_decrement_factor = float("nan")
@@ -27,7 +29,7 @@ def test_returns_zero_step_when_both_boundary_values_below_target():
 
 
 def test_returns_smaller_boundary_when_only_one_boundary_value_below_target():
-    # Arrange
+    # Arrange: только f(a) в шуме → остаёмся у старта α = a = 0.
     parameters = golden_section_parameters()
     parameters.iteration_count = 10
     parameters.function_decrement_factor = float("nan")
@@ -43,7 +45,7 @@ def test_returns_smaller_boundary_when_only_one_boundary_value_below_target():
 
 
 def test_returns_right_boundary_when_only_right_boundary_value_below_target():
-    # Arrange
+    # Arrange: только f(b) в шуме, f(a) нет → полный шаг α = b = 1 ещё осмыслен.
     parameters = golden_section_parameters()
     parameters.iteration_count = 10
     parameters.function_decrement_factor = float("nan")
@@ -59,7 +61,8 @@ def test_returns_right_boundary_when_only_right_boundary_value_below_target():
 
 
 def test_runs_iterations_when_both_boundary_values_above_target():
-    # Arrange
+    # Arrange: оба конца выше порога 1e-8, минимум параболы (x−0.3)²+0.1 тоже выше —
+    # короткое замыкание не срабатывает, ЗС реально крутит цикл (iteration_count=3).
     parameters = golden_section_parameters()
     parameters.iteration_count = 3
     parameters.function_decrement_factor = float("nan")
@@ -73,7 +76,7 @@ def test_runs_iterations_when_both_boundary_values_above_target():
 
 
 def test_domain_discovery_returns_zero_step_when_both_boundary_values_below_target():
-    # Arrange
+    # Arrange: тот же контракт, что у обычного ЗС — оба конца в шуме → шаг b, 0 итераций.
     parameters = golden_section_domain_discovery_parameters()
     parameters.iteration_count = 10
     parameters.function_decrement_factor = float("nan")

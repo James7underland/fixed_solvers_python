@@ -29,6 +29,7 @@ def UTF8_to_wchar(text: str | bytes) -> str:
         if ch <= 0x7F:
             codepoint = ch
         elif ch <= 0xBF:
+            # continuation 10xxxxxx — дописываем 6 бит к codepoint
             codepoint = (codepoint << 6) | (ch & 0x3F)
         elif ch <= 0xDF:
             codepoint = ch & 0x1F
@@ -51,7 +52,18 @@ def UTF8_to_wchar(text: str | bytes) -> str:
 
 
 def wchar_to_UTF8(text: str) -> str:
-    """Кодирование широкой строки в UTF-8 (суррогатные пары собираются в один кодпоинт)."""
+    """Кодирование широкой строки в UTF-8 (суррогатные пары собираются в один кодпоинт).
+
+    Диапазоны UTF-8:
+
+            0…7F         →  0xxxxxxx
+            80…7FF       →  110xxxxx 10xxxxxx
+            800…FFFF     →  1110xxxx 10xxxxxx 10xxxxxx
+            10000…10FFFF →  11110xxx 10xxxxxx 10xxxxxx 10xxxxxx
+
+    На узком Unicode (maxunicode == FFFF) символы выше U+FFFF приходят
+    двумя суррогатами D800–DBFF + DC00–DFFF; их нужно склеить до кодирования.
+    """
     out = bytearray()
     codepoint = 0
     for ch in text:
@@ -122,6 +134,7 @@ def string_replace(text: str, frm: str, to: str) -> str:
         if found < 0:
             break
         text = text[:found] + to + text[found + len(frm) :]
+        # Не сканируем вставку: "x"→"xx" на "xxx" даёт 6 иксов, как str.replace.
         start_pos = found + len(to)
     return text
 

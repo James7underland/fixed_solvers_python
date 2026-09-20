@@ -1,4 +1,21 @@
-"""Решение СЛАУ малой размерности методом Крамера."""
+"""Решение СЛАУ малой размерности методом Крамера.
+
+Ньютон для n ≤ 3 не ходит в общий LU: явные формулы дешевле и дают
+тот же порядок операций, что заложен в тестах.
+
+Скаляр: x = b/a.
+
+Правило Крамера (столбец i матрицы A заменён на правую часть b):
+xᵢ = det(Aᵢ) / det(A).
+
+2×2, A = [[a, b], [c, d]], правая часть (e, f):
+x₁ = (e·d − b·f) / (a·d − b·c),  x₂ = (a·f − c·e) / (a·d − b·c).
+
+3×3 — то же, det считается формулой Саррюса (см. ``determinant3``).
+
+Если размер другой — ``numpy.linalg.solve``. Любой NaN/∞ в ответе —
+``logic_error``: для солвера это «матрица/правая часть испортились», а не корень.
+"""
 
 from __future__ import annotations
 
@@ -9,7 +26,7 @@ from .exceptions import logic_error
 
 
 def _check_finite(values) -> None:
-    """Предусловие: в решении нет NaN и бесконечностей."""
+    """Срыв арифметики (деление на 0, переполнение) не маскируем как «решили»."""
     arr = np.atleast_1d(np.asarray(values, dtype=float))
     if not np.all(np.isfinite(arr)):
         raise logic_error("infinite value")
@@ -20,7 +37,11 @@ def determinant3(
     a21, a22, a23,
     a31, a32, a33,
 ) -> float:
-    """Определитель 3×3 в развёрнутой форме."""
+    """Определитель 3×3, формула Саррюса:
+    det A = a₁₁a₂₂a₃₃ + a₁₂a₂₃a₃₁ + a₁₃a₂₁a₃₂ − a₁₃a₂₂a₃₁ − a₁₁a₂₃a₃₂ − a₁₂a₂₁a₃₃.
+    """
+    # Слагаемые в том же порядке, что даёт раскрытие: сначала «плюс»-тройки,
+    # затем «минус». Не вызываем numpy.linalg.det — тесты фиксируют явный путь.
     return (
         + a11 * a22 * a33
         - a11 * a23 * a32
@@ -32,9 +53,10 @@ def determinant3(
 
 
 def solve_linear_system(A, b=None):
-    """Решение ax=b (скаляр), 2×2 и 3×3 методом Крамера, иначе numpy.linalg.solve.
+    """Решает A x = b.
 
-    Перегрузка пары (a, b): ``solve_linear_system((a, b))``.
+    Перегрузка ``solve_linear_system((a, b))`` — скалярная пара коэффициентов,
+    как в вызовах без явного второго аргумента.
     """
     if b is None:
         if isinstance(A, (tuple, list)) and len(A) == 2 and np.ndim(A[0]) == 0:
@@ -45,11 +67,13 @@ def solve_linear_system(A, b=None):
     b_arr = np.asarray(b, dtype=float)
 
     if A_arr.ndim == 0:
+        # Скалярное уравнение a x = b.
         result = float(b_arr) / float(A_arr)
         _check_finite(result)
         return result
 
     if A_arr.shape == (2, 2):
+        # x₁ = (e·d−b·f)/(a·d−b·c),  x₂ = (a·f−c·e)/(a·d−b·c)
         d = A_arr[0, 0] * A_arr[1, 1] - A_arr[1, 0] * A_arr[0, 1]
         d1 = b_arr[0] * A_arr[1, 1] - b_arr[1] * A_arr[0, 1]
         d2 = A_arr[0, 0] * b_arr[1] - A_arr[1, 0] * b_arr[0]
@@ -58,6 +82,7 @@ def solve_linear_system(A, b=None):
         return result
 
     if A_arr.shape == (3, 3):
+        # Крамер: Aᵢ — A с i-м столбцом, заменённым на b;  xᵢ = det(Aᵢ)/det(A).
         d = determinant3(
             A_arr[0, 0], A_arr[0, 1], A_arr[0, 2],
             A_arr[1, 0], A_arr[1, 1], A_arr[1, 2],

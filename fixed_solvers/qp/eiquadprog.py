@@ -1,10 +1,17 @@
 """Goldfarb–Idnani dual QP.
 
-min 0.5 x' G x + g0' x
-s.t. CE^T x + ce0 = 0
-     CI^T x + ci0 >= 0
+minₓ ½·xᵀGx + g₀ᵀx  при  CEᵀx + ce₀ = 0  и  CIᵀx + ci₀ ≥ 0
+(G SPD, p равенств, m неравенств). G заранее факторизуют Холецким: G = L Lᵀ.
+Dual-метод наращивает активный набор: нарушитель неравенства → шаг в
+нуль-пространстве активных равенств (Givens-повороты на треугольнике R и базисе J).
 
-G: n x n, g0: n, CE: n x p, ce0: p, CI: n x m, ci0: m, x: n
+Пробный шаг t = min(t₁, t₂):
+t₁ — пока какой-то множитель uₖ не обнулится (ограничение выходит);
+t₂ — пока выбранное неравенство не станет активным (zᵀn ≠ 0).
+Бесконечный t → задача несовместна, вернуть +inf.
+
+Метки цикла l1 / l2 / l2a — фазы: проверка KKT, выбор самого
+нарушенного ограничения, пробный шаг t.
 """
 
 from __future__ import annotations
@@ -64,7 +71,7 @@ def compute_d(d: np.ndarray, J: np.ndarray, np_vec: np.ndarray) -> None:
 
 
 def update_z(z: np.ndarray, J: np.ndarray, d: np.ndarray, iq: int) -> None:
-    """Компонента шага в нуль-пространстве активных ограничений (столбцы J[:, iq:])."""
+    """Компонента шага в нуль-пространстве активных ограничений (столбцы J начиная с iq)."""
     n = z.size
     if iq >= n:
         z[:] = 0.0
@@ -80,7 +87,18 @@ def update_r(R: np.ndarray, r: np.ndarray, d: np.ndarray, iq: int) -> None:
 
 
 def add_constraint(R: np.ndarray, J: np.ndarray, d: np.ndarray, iq: int, R_norm: float) -> tuple[bool, int, float]:
-    """Givens-повороты: вставляет столбец в R и обновляет J; False при вырождении."""
+    """Вставляет новое ограничение в активный набор Givens-поворотами.
+
+    Нужно обнулить хвост вектора d ниже позиции iq, чтобы R остался верхнетреугольным.
+    Для каждой пары (j−1, j) строится поворот с гипотенузой h = hypot(c, s):
+
+                    c  =  d[j−1] / h
+                    s  =  d[j]   / h
+
+    Столбцы j−1 и j матрицы J крутятся тем же (c, s). Формула s/(1+c)
+    — устойчивый вариант обновления без вычитания близких величин.
+    False, если новый диагональный элемент R вырожден относительно R_norm.
+    """
     n = J.shape[0]
     for j in range(n - 1, iq, -1):
         cc = d[j - 1]
@@ -92,6 +110,7 @@ def add_constraint(R: np.ndarray, J: np.ndarray, d: np.ndarray, iq: int, R_norm:
         ss = ss / h
         cc = cc / h
         if cc < 0.0:
+            # Нормализуем знак косинуса: c ≥ 0, чтобы s/(1+c) не взрывался.
             cc = -cc
             ss = -ss
             d[j - 1] = -h
@@ -243,6 +262,8 @@ def solve_quadprog2(chol, c1: float, g0: np.ndarray, CE, ce0, CI, ci0, x: np.nda
     label = "l1"
     while True:
         if label == "l1":
+            # Фаза KKT: sᵢ = (CIᵀ x + ci₀)ᵢ, psi = Σ min(0, sᵢ).
+            # psi ≈ 0 — все неравенства выполнены, x оптимален.
             for i in range(me, iq):
                 ip_active = int(A[i])
                 if 0 <= ip_active < iai.size:
@@ -264,6 +285,7 @@ def solve_quadprog2(chol, c1: float, g0: np.ndarray, CE, ce0, CI, ci0, x: np.nda
             continue
 
         if label == "l2":
+            # Самое нарушенное неравенство (минимальный sᵢ < 0) идёт в активный набор.
             for i in range(mi):
                 if s[i] < ss and iai[i] != -1 and iaexcl[i]:
                     ss = s[i]
@@ -276,6 +298,9 @@ def solve_quadprog2(chol, c1: float, g0: np.ndarray, CE, ce0, CI, ci0, x: np.nda
             label = "l2a"
             continue
 
+        # Dual-шаг. t₁ — выход ограничения из базиса, t₂ — выход на выбранное неравенство.
+        # t₁ = min {uₖ / rₖ | rₖ > 0};  t₂ = −sᵢ / (zᵀ n)
+        # (t₂ = inf, если z = 0 — шаг в нуль-пространстве вырожден).
         compute_d(d, J, np_vec)
         update_z(z, J, d, iq)
         update_r(R, r, d, iq)
@@ -293,8 +318,10 @@ def solve_quadprog2(chol, c1: float, g0: np.ndarray, CE, ce0, CI, ci0, x: np.nda
             t2 = _INF
         t = min(t1, t2)
         if t >= _INF:
+            # И t₁, и t₂ бесконечны: дуальная задача несовместна.
             return _INF
         if t2 >= _INF:
+            # Можем только выкинуть ограничение l_idx и повторить пробный шаг.
             u[:iq] -= t * r[:iq]
             u[iq] += t
             if 0 <= l_idx < iai.size:
@@ -307,6 +334,7 @@ def solve_quadprog2(chol, c1: float, g0: np.ndarray, CE, ce0, CI, ci0, x: np.nda
         u[:iq] -= t * r[:iq]
         u[iq] += t
         if t == t2:
+            # Дошли до выбранного неравенства — вставляем его в активный набор.
             ok, iq, R_norm = add_constraint(R, J, d, iq, R_norm)
             if not ok:
                 iaexcl[ip] = 0

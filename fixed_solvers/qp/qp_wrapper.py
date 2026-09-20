@@ -36,7 +36,10 @@ def solve_quadprog_box(
     minimum: Sequence[tuple[int, float]],
     maximum: Sequence[tuple[int, float]],
 ) -> np.ndarray:
-    """min 0.5 x' H x + f' x при box-ограничениях."""
+    """Box-QP в форме Goldfarb–Idnani: min ½·xᵀHx + fᵀx при minᵢ ≤ xᵢ ≤ maxᵢ.
+    Неравенства Ax ≤ b переводятся в CIᵀx + ci₀ ≥ 0: CI = −Aᵀ, ci₀ = b.
+    Равенств нет: CE пустой. Решение пишется в ``estimation`` и возвращается.
+    """
     H_dense = np.asarray(H.toarray() if sparse.issparse(H) else H, dtype=float)
     f_vec = np.asarray(f, dtype=float).reshape(-1)
     n = f_vec.size
@@ -45,7 +48,7 @@ def solve_quadprog_box(
     b = np.zeros(n_cons, dtype=float)
     row = 0
     for index, min_bound in minimum:
-        # x_i >= min  ↔  -x_i <= -min
+        # xᵢ ≥ min  ↔  −xᵢ ≤ −min
         A[row, int(index)] = -1.0
         b[row] = -float(min_bound)
         row += 1

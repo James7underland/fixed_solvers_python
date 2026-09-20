@@ -1,4 +1,9 @@
-"""Исключения библиотеки."""
+"""Исключения библиотеки.
+
+domain_violation специально не Exception: солвер ловит его точечно,
+а пользовательский ``except Exception`` не спрячет выход за ООФ как «обычный сбой».
+NaN из функции при этом НЕ считается ООФ — это NumericalNanValues.
+"""
 
 
 class domain_violation(BaseException):

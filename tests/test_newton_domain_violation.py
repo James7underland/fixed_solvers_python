@@ -20,6 +20,7 @@ from fixed_solvers import (
 
 
 class residual_domain_violation_var(fixed_system_t):
+    """ООФ: x₀ ≥ 0 (и опционально x₀ ≤ upper). Корень x₀ = linear_residual_root."""
     dimension = -1
 
     def __init__(self):
@@ -37,6 +38,10 @@ class residual_domain_violation_var(fixed_system_t):
 
 
 class jacobian_domain_violation_var(fixed_system_t):
+    """Невязка в ООФ, но якобиан всегда бросает domain_violation —
+
+    Ньютон падает на первом шаге при сборке J, код NumericalNanValues.
+    """
     dimension = -1
 
     def residuals(self, x):
@@ -48,6 +53,7 @@ class jacobian_domain_violation_var(fixed_system_t):
 
 
 class residual_domain_violation_fixed2(fixed_system_t):
+    """Двумерный аналог: ООФ x₀ ≥ 0, корень (1, 2)."""
     dimension = 2
 
     def residuals(self, x):
@@ -58,6 +64,7 @@ class residual_domain_violation_fixed2(fixed_system_t):
 
 
 class jacobian_domain_violation_fixed2(fixed_system_t):
+    """Плотный якобиан бросает domain_violation при dimension = 2."""
     dimension = 2
 
     def residuals(self, x):
@@ -69,7 +76,7 @@ class jacobian_domain_violation_fixed2(fixed_system_t):
 
 
 def test_catches_residual_violation_at_initial_point_var():
-    # Arrange
+    # Arrange: старт x₀ = −1 уже вне ООФ — Ньютон не делает шаг, код NumericalNanValues.
     equation = residual_domain_violation_var()
     parameters = fixed_solver_parameters_t(-1, 0, golden_section_search)
     initial = np.array([-1.0])
@@ -81,7 +88,7 @@ def test_catches_residual_violation_at_initial_point_var():
 
 
 def test_catches_jacobian_violation_var():
-    # Arrange
+    # Arrange: старт в ООФ (x₀ = 0.5), но J недоступен — это не «корень не найден».
     equation = jacobian_domain_violation_var()
     parameters = fixed_solver_parameters_t(-1, 0, golden_section_search)
     initial = np.array([0.5])
@@ -93,7 +100,7 @@ def test_catches_jacobian_violation_var():
 
 
 def test_catches_residual_violation_at_initial_point_fixed2():
-    # Arrange
+    # Arrange: двумерный старт (−1, 0) — первая компонента уже вне ООФ.
     equation = residual_domain_violation_fixed2()
     parameters = fixed_solver_parameters_t(2, 0, golden_section_search)
     initial = np.array([-1.0, 0.0])
@@ -105,7 +112,7 @@ def test_catches_residual_violation_at_initial_point_fixed2():
 
 
 def test_catches_jacobian_violation_fixed2():
-    # Arrange
+    # Arrange: старт (0, 0) в ООФ, но jacobian_dense бросает domain_violation.
     equation = jacobian_domain_violation_fixed2()
     parameters = fixed_solver_parameters_t(2, 0, golden_section_search)
     initial = np.array([0.0, 0.0])
@@ -118,6 +125,8 @@ def test_catches_jacobian_violation_fixed2():
 
 def test_records_nan_and_indices_when_line_search_explore_hits_domain():
     # Arrange
+    # ООФ — полоса 0 ≤ x₀ ≤ 1, корень 1.2 лежит справа за потолком.
+    # Сетка α ∈ [0, 1] от x=0.95 обязана задеть x>1 → NaN в analysis и индексы узлов.
     equation = residual_domain_violation_var()
     equation.upper_bound_for_domain = 1.0
     equation.linear_residual_root = 1.2
@@ -147,7 +156,8 @@ def test_records_nan_and_indices_when_line_search_explore_hits_domain():
 
 
 def test_propagates_domain_violation_when_line_search_explore_rethrow():
-    # Arrange
+    # Arrange: та же сетка, но политика rethrow — domain_violation не глотается в NaN,
+    # а всплывает вызывающему (диагностика «упасть сразу», не «записать дырку»).
     equation = residual_domain_violation_var()
     equation.upper_bound_for_domain = 1.0
     equation.linear_residual_root = 1.2
@@ -166,6 +176,8 @@ def test_propagates_domain_violation_when_line_search_explore_rethrow():
 
 def test_domain_violation_is_not_a_regular_exception():
     # Arrange / Act / Assert
+    # Наследует BaseException, не Exception: `except Exception` его не ловит.
+    # Иначе пользовательский широкий except спрятал бы выход за ООФ как «обычный сбой».
     assert issubclass(domain_violation, BaseException)
     assert not issubclass(domain_violation, Exception)
     caught_as_exception = False

@@ -25,12 +25,18 @@ def nullable_bool_to_str(nb: nullable_bool_t) -> str:
 
 
 def pseudo_sgn(val) -> int:
-    """Знак с нулём как плюс: ``+1`` при ``val >= 0``, иначе ``-1``."""
+    """Знак с нулём как плюс: ``+1`` при ``val ≥ 0``, иначе ``−1``."""
     return 2 * (val >= 0) - 1
 
 
 def ensure_abs_epsilon_value(value, epsilon=1e-6):
-    """Если ``|value| < epsilon``, возвращает ``sign(value) * epsilon``."""
+    """Поднимает слишком малые |x| до ε, сохраняя знак:
+
+        |x| ≥ ε  →  x
+        иначе    →  sign*(x) · ε     (ноль даёт +ε, т.к. pseudo_sgn(0) = +1)
+
+    Нужно, чтобы не делить на почти-ноль в знаменателях прикладных формул.
+    """
     abs_value = abs(value)
     if abs_value >= epsilon:
         return value
@@ -58,21 +64,24 @@ def sqr(x: float) -> float:
 
 
 def ssqrt(x: float) -> float:
-    """Знаковый квадратный корень: ``sign(x) * sqrt(|x|)``."""
+    """Знаковый квадратный корень: ``sign(x) · √|x|``."""
     if x >= 0:
         return math.sqrt(x)
     return -math.sqrt(-x)
 
 
 def ssqr(x: float) -> float:
-    """Знаковый квадрат: ``sign(x) * x^2``."""
+    """Знаковый квадрат: ``sign(x) · x²``."""
     if x >= 0:
         return sqr(x)
     return -sqr(x)
 
 
 def polyval(poly_coeffs: Sequence[float], x: float) -> float:
-    """Значение полинома; индекс коэффициента равен степени (не формат Matlab)."""
+    """Значение полинома, индекс = степень (не Matlab, там старший первым):
+    p(x) = Σₖ aₖ xᵏ. Схема: acc=0, pow=1; на каждом k: acc += aₖ·pow; pow *= x.
+    Пустой список коэффициентов — тождественный ноль.
+    """
     n = len(poly_coeffs)
     if n == 0:
         return 0.0
@@ -85,7 +94,7 @@ def polyval(poly_coeffs: Sequence[float], x: float) -> float:
 
 
 def poly_differentiate(poly_coeffs: Sequence[float]) -> list[float]:
-    """Коэффициенты производной: ``k * a_k`` сдвигаются на одну степень вниз."""
+    """(Σ aₖ xᵏ)′ = Σ k aₖ xᵏ⁻¹ → новыйₖ = (k+1) aₖ₊₁."""
     derivative = [0.0] * (len(poly_coeffs) - 1)
     for index in range(len(derivative)):
         k = float(index + 1)

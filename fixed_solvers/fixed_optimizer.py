@@ -1,4 +1,12 @@
-"""Оптимизация методом Гаусса–Ньютона (сумма квадратов)."""
+"""Оптимизация Гаусса–Ньютона: min ½·‖r(x)‖².
+
+Линеаризация r(x+p) ≈ r + J·p даёт minₚ ½·‖J·p + r‖²  ⇔  JᵀJ·p = −Jᵀ r.
+В коде шаг считается как ``lstsq(J, -r)`` — устойчивее явного нормального
+уравнения JᵀJ (не возводим число обусловленности в квадрат).
+
+Дальше тот же линейный поиск по f(x + α·p).
+Розенброк как две невязки (канонический минимум (1, 1)): r(x) = (10·(x₁−x₀²), 1−x₀).
+"""
 
 from __future__ import annotations
 
@@ -40,7 +48,7 @@ class fixed_least_squares_function_t(ABC):
         self.epsilon = float(epsilon)
 
     def objective_function(self, r) -> float:
-        """||r||²."""
+        """‖r‖²."""
         arr = as_float_array(r)
         return float(np.dot(arr, arr))
 
@@ -83,7 +91,7 @@ class fixed_least_squares_function_t(ABC):
 class rosenbrock_function_t(fixed_least_squares_function_t):
     """Классическая функция Розенброка в виде двух невязок."""
     def residuals(self, x):
-        """Невязки Розенброка: 10(x1-x0²) и 1-x0."""
+        """Невязки Розенброка: 10(x₁−x₀²) и 1−x₀."""
         x = as_float_array(x)
         result = np.empty(2, dtype=float)
         result[0] = 10.0 * (x[1] - x[0] * x[0])
@@ -95,7 +103,7 @@ class fixed_optimize_gauss_newton:
     """Итерации Гаусса–Ньютона: lstsq(J, -r) и линейный поиск вдоль направления."""
     @staticmethod
     def _argument_increment_factor(argument, argument_increment) -> float:
-        """||Δx|| / n — относительная длина шага оптимизатора."""
+        """‖Δx‖ / n — относительная длина шага оптимизатора."""
         inc = as_float_array(argument_increment)
         return float(np.linalg.norm(inc) / argument.size)
 
@@ -137,6 +145,7 @@ class fixed_optimize_gauss_newton:
         line_search_cls = getattr(solver_parameters, "_line_search_cls", divider_search)
 
         for _iteration in range(solver_parameters.iteration_count):
+            # Линеаризация: min ‖J·p + r‖²  ⇔  lstsq(J, −r), без явного JᵀJ.
             J = function.jacobian_dense(result.argument)
             search_direction, *_ = np.linalg.lstsq(J, -as_float_array(result.residuals), rcond=None)
 
@@ -152,6 +161,7 @@ class fixed_optimize_gauss_newton:
                 analysis.steps.append(search_step)
 
             if not np.isfinite(search_step):
+                # Вдоль p нет улучшения — оптимизатор не пробует QP-fallback (в отличие от Ньютона).
                 result.result_code = numerical_result_code_t.LineSearchFailed
                 break
 
@@ -172,6 +182,7 @@ class fixed_optimize_gauss_newton:
                 else fixed_optimize_gauss_newton._argument_increment_factor(result.argument, search_direction)
             )
             argument_increment_criteria = argument_increment_metric < solver_parameters.argument_increment_norm
+            # custom_criteria зарезервирован и сейчас всегда False: останов только по шагу.
             custom_criteria = False
             if custom_criteria or argument_increment_criteria:
                 result.result_code = numerical_result_code_t.Converged

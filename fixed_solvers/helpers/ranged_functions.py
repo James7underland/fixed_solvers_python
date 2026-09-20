@@ -20,7 +20,9 @@ def value_in_range(value: float, range_begin: float, range_end: float) -> bool:
 
 
 def poly_integral_coefficients(poly_coeffs: Sequence[float]) -> list[float]:
-    """Коэффициенты первообразной: ``a_k / (k+1)`` со свободным членом 0."""
+    """Коэффициенты первообразной со свободным членом 0: Aₖ₊₁ = aₖ/(k+1), A₀ = 0.
+    То есть ∫ (a₀ + a₁ x + a₂ x² + …) dx = a₀ x + a₁ x²/2 + a₂ x³/3 + …
+    """
     n = len(poly_coeffs)
     result = [0.0] * (n + 1)
     for index in range(1, n + 1):
@@ -127,7 +129,12 @@ class ranged_polynom_t(ranged_function_t[Sequence[float]]):
         raise logic_error("approximation range not found")
 
     def get_inv_polynom_value(self, y: float) -> float:
-        """Обратная функция: x такой, что p(x) = y, корень должен быть один на куске."""
+        """Обратная: найти x на куске, где p(x) = y.
+
+        Линейный кусок: x = (y − c0) / c1.
+        Кубический: p(x) − y = 0, берём единственный корень внутри [range_start, range_end].
+        Квадрат и выше 3 не реализованы.
+        """
         if not self.ranges:
             raise logic_error("No polynom ranges defined")
         range_index = self.get_inv_range_index(y)

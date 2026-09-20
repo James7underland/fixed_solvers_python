@@ -1,4 +1,22 @@
-"""Бисекция, метод секущих и комбинированный скалярный солвер."""
+"""Бисекция, метод секущих и Illinois на отрезке [xₘᵢₙ, xₘₐₓ].
+
+Ищем корень скалярной r(x) = 0. Предполагается смена знака на границах
+(или корень уже на границе / в старте).
+
+Бисекция — середина отрезка: x₃ = (x₁+x₂)/2.
+
+Секущие — взвешенное среднее концов (веса — модули невязок):
+x₃ = |y₂|/(|y₁|+|y₂|) · x₁ + |y₁|/(|y₁|+|y₂|) · x₂.
+x₃ обязан попасть строго внутрь (x₁, x₂); иначе секущие сорвались.
+
+Combined: сначала бисекция; после ``secant_treshhold_iterations`` и если
+ширина отрезка в [min, max] — секущие; срыв секущих → снова середина.
+
+Illinois: если секущие два раза подряд сдвигают один и тот же конец,
+противоположную невязку делят пополам — иначе метод «залипает» на одном конце.
+
+Число итераций бисекции до точности ε по аргументу: N = ⌊log₂(1/ε)⌋.
+"""
 
 from __future__ import annotations
 
@@ -95,17 +113,23 @@ fixed_bisectional = _BisectionFactory()
 
 
 def _get_max_allowed_iterations(initial_delta: float, argument_precision: float) -> int:
-    """Оценка числа делений отрезка пополам до заданной точности."""
+    """Сколько раз делить отрезок пополам, чтобы ширина стала ~ε:
+    N = ⌊log₂(1/ε)⌋ = ⌊log(1/ε)/log 2⌋.
+    ``initial_delta`` в сигнатуре исторический: число итераций зависит только от ε.
+    """
     return int(math.floor(math.log(1.0 / argument_precision) / math.log(2.0)))
 
 
 def _is_within_machine_epsilon(x1: float, x2: float) -> bool:
-    """True, если |x1-x2| не больше машинного эпсилона относительно масштаба точек."""
+    """True, если |x₁−x₂| не больше машинного эпсилона относительно масштаба точек."""
     return abs(x1 - x2) <= max(abs(x2), abs(x1)) * _DBL_EPSILON
 
 
 def _next_argument_secant(x1, x2, y1, y2):
-    """Следующая точка методом секущих; NaN, если точка вышла за (x1, x2)."""
+    """Секущая как выпуклая комбинация концов:
+    x₃ = |y₂|/(|y₁|+|y₂|) · x₁ + |y₁|/(|y₁|+|y₂|) · x₂.
+    Если x₃ не внутри (x₁, x₂) — секущие сорвались (почти параллельны оси).
+    """
     denom = abs(y2) + abs(y1)
     x3 = (abs(y2) / denom * x1 + abs(y1) / denom * x2)
     if not math.isfinite(x3):
@@ -116,7 +140,7 @@ def _next_argument_secant(x1, x2, y1, y2):
 
 
 def _next_argument_bisection(x1, x2, y1, y2):
-    """Середина отрезка."""
+    """Середина отрезка x₃ = (x₁+x₂)/2; y не используются — знак проверяется после r(x₃)."""
     x3 = 0.5 * (x2 + x1)
     if not math.isfinite(x3):
         return float("nan"), numerical_result_code_t.NumericalNanValues
@@ -127,6 +151,7 @@ def _next_argument_value(solver_parameters, x1, x2, y1, y2, iterations, use_seca
     """Выбирает бисекцию, секущие или комбинированный шаг; Illinois включается снаружи."""
     if solver_parameters.verbose:
         print(f"next_argument_value d:{abs(x2 - x1)}", file=sys.stdout)
+    # По умолчанию — не секущие: Illinois срабатывает только если этот флаг True.
     use_secant_ref[0] = False
     if solver_parameters.solution_type == fixed_bisectional_solution_type.Bisection:
         return _next_argument_bisection(x1, x2, y1, y2)
@@ -134,6 +159,7 @@ def _next_argument_value(solver_parameters, x1, x2, y1, y2, iterations, use_seca
         use_secant_ref[0] = True
         return _next_argument_secant(x1, x2, y1, y2)
     if solver_parameters.solution_type == fixed_bisectional_solution_type.Combined:
+        # Секущие включаются только после порога по числу итераций И по ширине отрезка.
         use_secant_ref[0] = (
             solver_parameters.secant_thresholds_satisfied(x1, x2)
             and int(iterations) > solver_parameters.secant_treshhold_iterations
@@ -141,6 +167,7 @@ def _next_argument_value(solver_parameters, x1, x2, y1, y2, iterations, use_seca
         if use_secant_ref[0]:
             x3, code = _next_argument_secant(x1, x2, y1, y2)
             if code != numerical_result_code_t.Converged:
+                # Секущая ушла за (x₁, x₂) или дала NaN — безопасный откат к середине.
                 use_secant_ref[0] = False
                 return _next_argument_bisection(x1, x2, y1, y2)
             return x3, code
@@ -170,7 +197,8 @@ def _residual_exit_criterium(solver_parameters, r, argument, analysis, result) -
 
 
 def _solve_limited(solver_parameters, residuals, x1, x2, result, analysis) -> None:
-    """Итерации на отрезке [x1, x2] с возможным Illinois-ослаблением секущих."""
+    """Итерации на отрезке [x₁, x₂] с возможным Illinois-ослаблением секущих."""
+    # Стартовая точка уже лежит в [x₁, x₂] (середина или initial из _solve).
     x3 = result.argument
     y1 = residuals.residuals(x1)
     y2 = residuals.residuals(x2)
@@ -181,6 +209,7 @@ def _solve_limited(solver_parameters, residuals, x1, x2, result, analysis) -> No
         abs(x2 - x1), solver_parameters.argument_precision
     )
 
+    # Знак предыдущей невязки: +1 / −1. Нужен Illinois, чтобы не залипать на одном конце.
     previous_residual_sign = 0
     for iteration in range(result.max_allowed_iterations + 1):
         result.iteration_count = iteration
@@ -190,6 +219,7 @@ def _solve_limited(solver_parameters, residuals, x1, x2, result, analysis) -> No
         )
         result.argument = x3
         if result.result_code != numerical_result_code_t.Converged:
+            # Секущие/бисекция вернули NaN — это срыв арифметики, не «корень не найден».
             if solver_parameters.verbose:
                 print(f"{iteration}\t{result.max_allowed_iterations}", file=sys.stdout)
                 print(
@@ -210,13 +240,15 @@ def _solve_limited(solver_parameters, residuals, x1, x2, result, analysis) -> No
             return
         use_secant = use_secant_ref[0]
         if y3 > 0:
+            # Корень левее x₃: новый левый конец. При двух плюсах подряд Illinois
+            # ослабляет правую невязку вдвое, чтобы секущая сдвинулась с мёртвой точки.
             x1 = x3
             y1 = y3
-            # Illinois: при двух положительных невязках подряд ослабляем противоположный конец.
             if use_secant and solver_parameters.use_Illinois and previous_residual_sign == +1:
                 y2 /= 2.0
             previous_residual_sign = +1
         elif y3 < 0:
+            # Корень правее x₃: новый правый конец. Симметричное Illinois-ослабление y₁.
             x2 = x3
             y2 = y3
             if use_secant and solver_parameters.use_Illinois and previous_residual_sign == -1:
@@ -226,11 +258,14 @@ def _solve_limited(solver_parameters, residuals, x1, x2, result, analysis) -> No
         if result.reached_precision <= solver_parameters.argument_precision:
             break
         if _is_within_machine_epsilon(x1, x2):
+            # Дальше делить бессмысленно: x₁ и x₂ уже неразличимы в float64.
             break
     else:
+        # for не сделал break — исчерпали бюджет итераций.
         result.iteration_count = result.max_allowed_iterations
 
     if result.iteration_count >= result.max_allowed_iterations:
+        # Дошли до потолка итераций: корень «достаточно сжат», но не Excellent.
         result.result_code = numerical_result_code_t.Converged
         result.score = convergence_score_t.Satisfactory
     else:
@@ -253,7 +288,9 @@ def _solve(solver_parameters, initial_argument, residuals, result, analysis) -> 
     if not math.isfinite(initial_argument):
         result.argument = (maxx + minx) / 2.0
     else:
-        # Проверка идёт по result.argument (NaN по умолчанию), а не по initial_argument.
+        # Ловушка: сравниваем result.argument (по умолчанию NaN), а не initial.
+        # NaN < minx и NaN > maxx — оба False, поэтому «грязный» result
+        # с заранее записанным argument вне отрезка ловится здесь.
         if result.argument < minx or result.argument > maxx:
             raise logic_error("Не верно задано начальное приближение")
         result.argument = initial_argument

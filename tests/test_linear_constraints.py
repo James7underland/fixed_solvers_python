@@ -6,6 +6,7 @@ from fixed_solvers import fixed_linear_constraints
 
 def test_linear_constraints_approaches_bound():
     # Arrange
+    # Полуплоскость x+y ≤ 1, луч (0,0)→(1,1) пересекает границу в (0.5, 0.5).
     x = np.array([0.0, 0.0])
     dx = np.array([1.0, 1.0])
     linear_constraints = fixed_linear_constraints(2, 1)
@@ -19,6 +20,9 @@ def test_linear_constraints_approaches_bound():
 
 def test_linear_constraints_projects_from_border_case2():
     # Arrange
+    # Старт на границе −x + y = 0 (прямая y = x). Шаг (0, 1) смотрит вверх.
+    # Проекция на касательную y = x даёт (0.5, 0.5): одинаковые компоненты,
+    # длина сохраняет «вдоль границы», а не «наружу».
     x = np.array([0.0, 0.0])
     dx = np.array([0.0, 1.0])
     linear_constraints = fixed_linear_constraints(2, 1)
@@ -32,6 +36,8 @@ def test_linear_constraints_projects_from_border_case2():
 
 def test_linear_constraints_projects_from_border_case3():
     # Arrange
+    # Граница x + y = 0 (y = −x), старт в начале, шаг (0, 1) вверх.
+    # Проекция на y = −x: (−0.5, 0.5).
     x = np.array([0.0, 0.0])
     dx = np.array([0.0, 1.0])
     linear_constraints = fixed_linear_constraints(2, 1)
@@ -45,6 +51,7 @@ def test_linear_constraints_projects_from_border_case3():
 
 def test_linear_constraints_projects_from_border_case4():
     # Arrange
+    # Та же граница x + y = 0, шаг (1, 0) вправо → проекция (0.5, −0.5).
     x = np.array([0.0, 0.0])
     dx = np.array([1.0, 0.0])
     linear_constraints = fixed_linear_constraints(2, 1)
@@ -57,7 +64,7 @@ def test_linear_constraints_projects_from_border_case4():
 
 
 def test_linear_constraints_projects_from_border_case5():
-    # Arrange
+    # Arrange: старт уже на aᵀx = 0, шаг вдоль нормали (1,1) → проекция в 0.
     x = np.array([0.0, 0.0])
     dx = np.array([1.0, 1.0])
     linear_constraints = fixed_linear_constraints(2, 1)

@@ -1,4 +1,15 @@
-"""Ограничения солвера: box, relative и линейные ax <= b."""
+"""Ограничения солвера: box, relative и линейные aᵀx ≤ b.
+
+Box: NaN = «границы нет». Для dimension=−1 границы — списки (index, value).
+
+Обрезка шага p (чтобы x + p не вылезло). Ищется общий множитель t ≥ 1: p ← p/t.
+t — максимум по компонентам из отношений «хотели / сколько можно».
+Если точка уже на границе (допуск eps_constraints), эту компоненту pᵢ
+обнуляют, остальные масштабируют.
+
+Линейное trim только для 2D и одного неравенства: если старт на границе —
+проекция шага на прямую; иначе пересечение луча x → x+p с прямой aᵀx = b.
+"""
 
 from __future__ import annotations
 
@@ -119,7 +130,7 @@ class fixed_solver_constraints:
         argument_dimension: int,
         boundaries: Sequence[tuple[int, float]],
     ) -> tuple[np.ndarray, np.ndarray]:
-        """Матрица A и вектор b для ограничений x_i <= value (строка — единица в столбце i)."""
+        """Матрица A и вектор b для ограничений xᵢ ≤ value (строка — единица в столбце i)."""
         A = np.zeros((len(boundaries), argument_dimension), dtype=float)
         b = np.zeros(len(boundaries), dtype=float)
         for row_index, (idx, value) in enumerate(boundaries):
@@ -128,7 +139,7 @@ class fixed_solver_constraints:
         return A, b
 
     def get_inequalities_constraints_dense(self, argument_size: int) -> tuple[np.ndarray, np.ndarray]:
-        """Плотные неравенства max и -min в виде A x <= B."""
+        """Плотные неравенства max и −min в виде Ax ≤ B."""
         n = argument_size
         A = np.zeros((self.get_constraint_count(), n), dtype=float)
         B = np.zeros(self.get_constraint_count(), dtype=float)
@@ -143,7 +154,7 @@ class fixed_solver_constraints:
         return A, B
 
     def get_inequalities_constraints_sparse(self, current_argument) -> tuple[sparse.csc_matrix, np.ndarray]:
-        """Разреженные неравенства относительно текущей точки: A p <= b."""
+        """Разреженные неравенства относительно текущей точки: Ap ≤ b."""
         arg = np.asarray(current_argument, dtype=float).reshape(-1)
         n = int(arg.size)
         rows: list[int] = []
@@ -213,7 +224,9 @@ class fixed_solver_constraints:
         return False
 
     def trim_relative(self, increment) -> Any:
-        """Масштабирует шаг, чтобы ни одна компонента не превысила relative_boundary."""
+        """Масштабирует весь p, чтобы |pᵢ| ≤ relative_boundaryᵢ.
+        t = maxᵢ |pᵢ|/boundᵢ;  p ← p/t при t > 1 (общий множитель, направление не ломаем).
+        """
         if self.dimension == 1:
             if math.isnan(float(self.relative_boundary)):
                 return increment
@@ -362,7 +375,7 @@ class fixed_solver_constraints:
 
 
 class fixed_linear_constraints:
-    """Линейные ограничения ax <= b; trim реализован для 2D и одного неравенства."""
+    """Линейные ограничения ax ≤ b; trim реализован для 2D и одного неравенства."""
     def __init__(self, dimension: int, count: int = 0) -> None:
         self.dimension = int(dimension)
         self.count = int(count)
@@ -374,7 +387,7 @@ class fixed_linear_constraints:
             self.b = float("nan")
 
     def check_constraint_satisfaction(self, x) -> bool:
-        """True, если точка удовлетворяет ax <= b (или ограничение не задано)."""
+        """True, если точка удовлетворяет ax ≤ b (или ограничение не задано)."""
         if math.isfinite(self.b):
             return inner_prod(self.a, x) <= self.b
         return True
@@ -395,7 +408,16 @@ class fixed_linear_constraints:
         return np.array([-k, 1.0], dtype=float), b
 
     def trim(self, x, dx) -> Any:
-        """Обрезает 2D-шаг по полуплоскости: проекция, если старт на границе, иначе пересечение."""
+        """Обрезает 2D-шаг по полуплоскости aᵀx ≤ b.
+
+        Луч целиком внутри — без изменений. Старт на границе aᵀx = b —
+        проекция dx на касательную: k = −a₀/a₁, α = arctan(k),
+        β = arccos(dx₀/|dx|), γ = β−α, |p′| = |dx|·cos(γ),
+        p′ = (|p′| cos α, |p′| sin α).
+
+        Иначе решаем 2×2: пересечение прямой шага и прямой aᵀx = b,
+        новый шаг = точка пересечения − x.
+        """
         if self.count == 0 or self.a is None:
             return dx
         if not math.isfinite(self.b):
@@ -403,8 +425,10 @@ class fixed_linear_constraints:
         p1 = np.asarray(x, dtype=float)
         p2 = p1 + np.asarray(dx, dtype=float)
         if self.check_constraint_satisfaction(p2):
+            # Конец шага x+dx ещё в полуплоскости — обрезать нечего.
             return dx
         if self.check_constraint_border(p1):
+            # Старт уже на границе: нельзя идти «наружу», только скользить вдоль прямой.
             k = -self.a[0] / self.a[1]
             alpha = math.atan(k)
             p = math.sqrt(float(dx[0]) ** 2 + float(dx[1]) ** 2)
@@ -416,6 +440,7 @@ class fixed_linear_constraints:
             dx[0] = px
             dx[1] = py
             return dx
+        # Старт внутри, конец снаружи: режем луч в точке пересечения с aᵀx = b.
         a2, b2 = self.get_line_coeffs(p1, p2)
         A = np.array([self.a, a2], dtype=float)
         rhs = np.array([self.b, b2], dtype=float)

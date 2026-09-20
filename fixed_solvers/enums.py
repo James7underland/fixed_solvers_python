@@ -28,7 +28,13 @@ class line_search_fail_action_t(IntEnum):
 
 
 class numerical_result_code_t(IntEnum):
-    """Код завершения численного метода."""
+    """Код завершения численного метода.
+
+    NotConverged / InProgress / Converged — штатный жизненный цикл итераций.
+    NumericalNanValues — NaN/∞ в невязке или якобиане (в т.ч. domain_violation
+    на старте Ньютона пишется этим кодом).
+    LineSearchFailed — линейный поиск вернул NaN и политика TreatAsFail.
+    """
 
     NoNumericalError = 0
     IllConditionedMatrix = 1
@@ -58,7 +64,12 @@ class convergence_score_t(IntEnum):
 
 
 class domain_discovery_mode_t(IntEnum):
-    """Режим золотого сечения при неизвестной области определения."""
+    """Как ЗС реагирует на domain_violation.
+
+    forbid_exit               — выходить за ООФ нельзя вообще
+    require_connected_domain  — ООФ связна (одна «дырка» справа от a)
+    allow_disconnected_domain — можно отрезать куски эвристикой
+    """
 
     forbid_exit = 0
     require_connected_domain = 1

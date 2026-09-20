@@ -17,13 +17,15 @@ from fixed_solvers import (
 
 def test_string_ends_with():
     # Arrange / Act / Assert
+    # Пустой суффикс endswith считает совпадением, но слишком длинный — нет.
     assert string_ends_with("filename.py", ".py")
     assert not string_ends_with("filename.py", ".md")
     assert not string_ends_with("ab", "abc")
 
 
 def test_utf8_roundtrip_cyrillic():
-    # Arrange
+    # Arrange: кириллица в UTF-8 занимает 2 байта на букву; декодер должен
+    # собрать кодпоинты обратно в ту же unicode-строку (и наоборот).
     text = "Привет"
     # Act
     wide = UTF8_to_wchar(text.encode("utf-8"))
@@ -47,6 +49,7 @@ def test_string_replace_skips_inserted_fragment():
 
 def test_string_replace_empty_from_is_noop():
     # Arrange / Act
+    # Пустой frm: некуда «вставлять» — иначе бесконечный цикл на каждой позиции.
     result = string_replace("abc", "", "x")
     # Assert
     assert result == "abc"
@@ -54,12 +57,13 @@ def test_string_replace_empty_from_is_noop():
 
 def test_int_to_string_helpers():
     # Arrange / Act / Assert
+    # int2wstr исторически «широкая» строка; в Python это тот же str.
     assert int2str(42) == "42"
     assert int2wstr(-7) == "-7"
 
 
 def test_save_and_load_vector():
-    # Arrange
+    # Arrange: формат файла — длина, затем по значению на строку, пустая строка в конце.
     stream = StringIO()
     # Act
     save_vector(stream, [1, 2, 3])
@@ -70,7 +74,7 @@ def test_save_and_load_vector():
 
 
 def test_string2wide_accepts_unicode_text():
-    # Arrange
+    # Arrange: на Windows string2wide пытается cp1251; ASCII «solver» совпадает с UTF-8.
     text = "solver"
     # Act
     wide = string2wide(text)

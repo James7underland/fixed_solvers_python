@@ -1,4 +1,19 @@
-"""Решатель Ньютона–Рафсона фиксированной и переменной размерности."""
+"""Ньютон–Рафсон для системы r(x) = 0.
+
+Итерация без ограничений: J(xₖ)·p = −r(xₖ), затем xₖ₊₁ = xₖ + α·p
+(α — линейный поиск по f = ‖r‖²).
+
+Останов по относительной норме шага:
+ρ = √(Σᵢ (Δxᵢ / max(1, |xᵢ|))²) / n  <  ε
+(для dimension = -1 в знаменателе длина вектора, не константа dimension).
+
+Если линейный поиск сорвался и включён ``step_constraint_as_optimization``
+при активном box — шаг ищут как QP Гаусса–Ньютона:
+minₚ ½·‖J·p + r‖²  при p в относительном box
+или покоординатно: каждая компонента — lstsq по i-му столбцу J.
+
+Обрезка шага до line search: линейные aᵀx ≤ b, затем max, min, relative.
+"""
 
 from __future__ import annotations
 
@@ -50,7 +65,7 @@ class fixed_solver_analysis_parameters_t:
 
 @dataclass
 class step_line_search_explore_result_t:
-    """Значения ц.ф. по сетке alpha и индексы узлов с domain_violation."""
+    """Значения ц.ф. по сетке α и индексы узлов с domain_violation."""
     values: list[float] = field(default_factory=list)
     domain_violation_indices: list[int] = field(default_factory=list)
 
@@ -65,7 +80,7 @@ class no_line_search_parameters:
 
 
 class no_line_search:
-    """Линейный поиск, который сразу возвращает alpha = 1."""
+    """Линейный поиск, который сразу возвращает α = 1."""
     parameters_type = no_line_search_parameters
 
     @staticmethod
@@ -163,7 +178,12 @@ fixed_newton_raphson = _NewtonFactory()
 
 
 def argument_increment_factor(dimension: int, argument, argument_increment) -> float:
-    """Относительная норма шага: компоненты нормируются на max(1, |x_i|)."""
+    """Относительная норма шага ρ.
+    Скаляр: ρ = |Δx| / max(1, |x|).
+    Вектор: ρ = √(Σᵢ (Δxᵢ / max(1, |xᵢ|))²) / n.
+    max(1, |xᵢ|) не даёт компоненте около нуля раздуть метрику.
+    При dimension = -1 знаменатель — фактическая длина вектора.
+    """
     if dimension == 1 and is_scalar(argument):
         arg = max(1.0, abs(float(argument)))
         inc = float(argument_increment)
@@ -180,7 +200,10 @@ def argument_increment_factor(dimension: int, argument, argument_increment) -> f
 
 
 def _perform_step_research(residuals, argument, p, on_domain_violation) -> step_line_search_explore_result_t:
-    """Сетка ц.ф. на [0, 1] вдоль направления p (101 узел)."""
+    """Диагностика: 101 точка α = 0, 0.01, …, 1 вдоль x + α p.
+
+    domain_violation на узле: либо проброс, либо NaN + индекс узла в списке.
+    """
     research_step_count = 100
     result = step_line_search_explore_result_t()
     for index in range(research_step_count + 1):
@@ -220,7 +243,11 @@ def _triplets_to_csc(triplets, n_rows: int, n_cols: int):
 
 
 def _solve_newton(dimension: int, residuals, current_residuals_value, argument):
-    """Направление Ньютона: -J^{-1} r (разреженный LU при dimension=-1)."""
+    """Направление Ньютона: решаем J·p = −r, то есть p = −J⁻¹ r.
+
+    При dimension = −1 якобиан приходит COO-тройками, собирается в CSC
+    и факторизуется SuperLU. Иначе — плотный J и Крамер/LU.
+    """
     if dimension == -1:
         J_triplets = residuals.jacobian_sparse(argument)
         n = int(np.asarray(argument).reshape(-1).size)
@@ -236,7 +263,10 @@ def _solve_newton(dimension: int, residuals, current_residuals_value, argument):
 
 
 def _solve_quadprog(dimension, solver_parameters, residuals, current_residuals_value, argument):
-    """Шаг как box-QP: min ½||Jp + r||² при относительных min/max."""
+    """Шаг как box-QP Гаусса–Ньютона:
+    minₚ ½·pᵀ(JᵀJ)p + (rᵀJ)p  при  minᵢ−xᵢ ≤ pᵢ ≤ maxᵢ−xᵢ.
+    H = JᵀJ, линейный член f = rᵀJ. Границы — относительные (шаг, не точка).
+    """
     if dimension == 1:
         raise RuntimeError("Dimension=1 should not be called with quadprog")
     if dimension == -1:
@@ -286,7 +316,12 @@ def _trim_step(solver_parameters, argument, p):
 
 
 def _perform_vector_step(dimension, solver_parameters, optimization_step, residuals, result, analysis) -> bool:
-    """Один векторный шаг Ньютона или QP; True — остановить итерации."""
+    """Один шаг: направление → trim → line search → x += α p.
+
+    True = пора выходить из внешнего цикла (сходимость, NaN, fail search).
+    Сначала можно остановиться по residuals_norm, ещё не считая J.
+    """
+    # Ранний выход: невязка уже меньше порога — якобиан и шаг не нужны.
     if solver_parameters.residuals_norm_allow_early_exit and math.isfinite(solver_parameters.residuals_norm):
         if result.residuals_norm < solver_parameters.residuals_norm:
             result.residuals_norm_criteria = True
@@ -295,14 +330,17 @@ def _perform_vector_step(dimension, solver_parameters, optimization_step, residu
 
     try:
         if optimization_step:
+            # Обычный Ньютон сорвался у границы: ищем допустимый p как box-QP.
             p = _solve_quadprog(dimension, solver_parameters, residuals, result.residuals, result.argument)
         else:
             p = _solve_newton(dimension, residuals, result.residuals, result.argument)
     except domain_violation:
+        # Якобиан/невязка вне ООФ на текущей точке — это не «не сошлись», а NaN-код.
         result.result_code = numerical_result_code_t.NumericalNanValues
         return True
 
     if solver_parameters.step_criteria_assuming_search_step is False:
+        # Критерий по полному направлению p, ещё до умножения на α линейного поиска.
         result.argument_increment_metric = argument_increment_factor(dimension, result.argument, p)
         result.argument_increment_criteria = (
             result.argument_increment_metric < solver_parameters.argument_increment_norm
@@ -312,9 +350,11 @@ def _perform_vector_step(dimension, solver_parameters, optimization_step, residu
             result.result_code = numerical_result_code_t.Converged
             return True
 
+    # Обрезка: линейные полуплоскости, затем box max/min и относительный потолок |pᵢ|.
     p = _trim_step(solver_parameters, result.argument, p)
 
     if analysis is not None and solver_parameters.analysis.line_search_explore:
+        # Диагностика: 101 узел α ∈ [0, 1], чтобы увидеть ямы/дыры ООФ вдоль луча.
         explore = _perform_step_research(
             residuals,
             result.argument,
@@ -338,8 +378,10 @@ def _perform_vector_step(dimension, solver_parameters, optimization_step, residu
 
     if math.isfinite(search_step):
         if search_step < small_step_threshold:
+            # α < 0.1: направление ок, но линия почти не пошла — балл не выше Good.
             result.score = min(result.score, convergence_score_t.Good)
     else:
+        # Поиск не нашёл α. Три политики — см. line_search_fail_action_t.
         if solver_parameters.line_search_fail_action == line_search_fail_action_t.PerformMinStep:
             result.score = min(result.score, convergence_score_t.Satisfactory)
             search_step = solver_parameters.line_search.step_on_search_fail()
@@ -352,6 +394,7 @@ def _perform_vector_step(dimension, solver_parameters, optimization_step, residu
         else:
             raise logic_error("solver_parameters.line_search_fail_action is unknown")
 
+    # x ← x + α p. Дальше пересчитываем невязку в новой точке.
     argument_increment = var_scale(search_step, p)
     result.argument = var_add(result.argument, argument_increment)
 
@@ -392,7 +435,12 @@ def _perform_vector_step(dimension, solver_parameters, optimization_step, residu
 
 
 def _perform_coordinate_descent_step(dimension, solver_parameters, residuals, result, analysis) -> bool:
-    """Цикл по компонентам: координатный спуск с линейным поиском на каждой."""
+    """Цикл по компонентам: координатный спуск с линейным поиском на каждой.
+
+    На шаге i вектор p почти нулевой, кроме pᵢ = arg min ‖Jᵢ pᵢ + r‖²
+    (одномерный lstsq). После trim и line search обновляем x и переходим к i+1.
+    Метрика шага — максимум |pᵢ| (или α|pᵢ|, если учитываем длину поиска).
+    """
     has_succeeded_search_step = False
     p = var_zeros_like(result.argument)
     result.argument_increment_metric = 0.0
@@ -400,6 +448,8 @@ def _perform_coordinate_descent_step(dimension, solver_parameters, residuals, re
 
     for substep in range(substep_count):
         if substep != 0:
+            # Предыдущая компонента уже сделала свой шаг; в p её обнуляем,
+            # чтобы текущий lstsq не тащил старое направление.
             p = var_copy(p)
             p[substep - 1] = 0.0
         try:
@@ -496,7 +546,7 @@ def _perform_coordinate_descent_step(dimension, solver_parameters, residuals, re
 
 
 def _solve(dimension, residuals, initial_argument, solver_parameters, result, analysis):
-    """Основной цикл Ньютона: невязка в x0, затем шаги и оценка балла."""
+    """Основной цикл Ньютона: невязка в x₀, затем шаги и оценка балла."""
     result.argument = var_copy(initial_argument)
     if analysis is not None and solver_parameters.analysis.argument_history:
         analysis.argument_history.append(var_copy(result.argument))
@@ -523,7 +573,8 @@ def _solve(dimension, residuals, initial_argument, solver_parameters, result, an
         stop_iterations = _perform_vector_step(
             dimension, solver_parameters, False, residuals, result, analysis
         )
-        # Если Ньютон не нашёл шаг и ограничения активны — пробуем QP / координатный спуск.
+        # Ньютон не нашёл α (LineSearchFailed) и box активен — пробуем
+        # допустимый шаг: QP (Quadprog) или покоординатный lstsq.
         optimization_step = (
             solver_parameters.step_constraint_as_optimization
             and solver_parameters.constraints.has_active_constraints(result.argument)
@@ -548,6 +599,9 @@ def _solve(dimension, residuals, initial_argument, solver_parameters, result, an
         result.iteration_count = solver_parameters.iteration_count
 
     iteration = result.iteration_count
+    # Чем больше итераций относительно лимита, тем хуже балл (даже при Converged):
+    #   > 30% бюджета → не выше Satisfactory
+    #   > 15% бюджета → не выше Good
     if iteration > 0.3 * solver_parameters.iteration_count:
         result.score = min(result.score, convergence_score_t.Satisfactory)
     elif iteration > 0.15 * solver_parameters.iteration_count:
@@ -557,6 +611,9 @@ def _solve(dimension, residuals, initial_argument, solver_parameters, result, an
         result.score = convergence_score_t.Poor
 
     if math.isfinite(solver_parameters.residuals_norm):
+        # Жёсткий порог по невязке после цикла: если не уложились — NotConverged,
+        # если уложились и allow_force_success — поднимаем код до Converged
+        # (балл не лучше Satisfactory, если он был хуже).
         if result.residuals_norm > solver_parameters.residuals_norm:
             result.result_code = numerical_result_code_t.NotConverged
             result.score = convergence_score_t.Poor

@@ -15,6 +15,7 @@ from fixed_solvers import (
 
 
 class simple_equation_fixed(fixed_system_t):
+    """r(x) = x − (4, 5): корень очевиден, якобиан = I."""
     dimension = 2
 
     def residuals(self, x):
@@ -23,6 +24,7 @@ class simple_equation_fixed(fixed_system_t):
 
 
 class simple_equation_var(fixed_system_t):
+    """Та же линейная система, но dimension = −1 (длина аргумента задаётся снаружи)."""
     dimension = -1
 
     def residuals(self, x):
@@ -31,6 +33,11 @@ class simple_equation_var(fixed_system_t):
 
 
 class diagnostic_equation_var(fixed_system_t):
+    """Линейная r(x) = x − (1, −2) плюс крючок custom_line_research:
+
+    на каждом шаге Ньютона запоминает сетку α = 0, 0.01, …, 1,
+    чтобы сверить её с analysis.line_search_explore.
+    """
     dimension = -1
 
     def __init__(self):
@@ -50,6 +57,7 @@ class diagnostic_equation_var(fixed_system_t):
 
 
 class cubic_equation_fixed(fixed_system_t):
+    """(x−3)³ = 0. Целевая |r|, не r² — иначе линейный поиск ведёт себя иначе у нуля."""
     dimension = 1
 
     def residuals(self, x):
@@ -60,6 +68,11 @@ class cubic_equation_fixed(fixed_system_t):
 
 
 class simple_equation_with_custom_criteria(fixed_system_t):
+    """Останов только по custom_success_criteria: max |pᵢ| < 1e-6.
+
+    residuals_norm и argument_increment_norm в тесте выключены (NaN),
+    иначе Ньютон сошёлся бы раньше по стандартной метрике шага.
+    """
     dimension = -1
 
     def residuals(self, x):
@@ -74,6 +87,7 @@ class simple_equation_with_custom_criteria(fixed_system_t):
 
 
 class sample_system(fixed_system_t):
+    """(x−2)³ = 0, (y−1)³ = 0 — учебный пример из README."""
     dimension = 2
 
     def residuals(self, x):
@@ -82,7 +96,7 @@ class sample_system(fixed_system_t):
 
 
 def test_use_case_converges_sample_system():
-    # Arrange
+    # Arrange: старт (0, 0), корень (2, 1); кубическая невязка, Ньютон всё равно сходится.
     system = sample_system()
     parameters = fixed_solver_parameters_t(2, 0)
     result = fixed_solver_result_t(2)
@@ -95,6 +109,8 @@ def test_use_case_converges_sample_system():
 
 def test_handles_constrained_equations_fixed_quadprog():
     # Arrange
+    # Без box корень (4, 5). Потолок x₀≤3 и пол x₁≥8 несовместимы с корнем —
+    # шаг QP должен упереться в (3, 8).
     eq = simple_equation_fixed()
     parameters = fixed_solver_parameters_t(2, 0, golden_section_search)
     parameters.step_constraint_as_optimization = True
@@ -113,7 +129,8 @@ def test_handles_constrained_equations_fixed_quadprog():
 
 
 def test_handles_constrained_equations_coordinate_descent():
-    # Arrange
+    # Arrange: те же box x₀≤3, x₁≥8, но шаг у границы ищем покоординатным lstsq,
+    # не dual-QP. Ответ тот же (3, 8) — оба алгоритма упираются в активный box.
     eq = simple_equation_fixed()
     parameters = fixed_solver_parameters_t(2, 0, golden_section_search)
     parameters.step_constraint_as_optimization = True
@@ -132,7 +149,8 @@ def test_handles_constrained_equations_coordinate_descent():
 
 
 def test_handles_constrained_equations_var():
-    # Arrange
+    # Arrange: dimension = −1, потолок только на x₀ ≤ 3. Свободная компонента x₁
+    # должна выйти в корень 5 (residuals[1] ≈ 0), а x₀ упереться в 3.
     eq = simple_equation_var()
     parameters = fixed_solver_parameters_t(-1, 0, golden_section_search)
     parameters.step_constraint_as_optimization = True
@@ -150,7 +168,8 @@ def test_handles_constrained_equations_var():
 
 
 def test_handles_line_search_custom_diagnostics():
-    # Arrange
+    # Arrange: включаем сетку α вдоль луча. Солвер пишет 101 значение f в analysis,
+    # система дублирует те же α в custom_line_research — длины должны совпасть.
     eq = diagnostic_equation_var()
     parameters = fixed_solver_parameters_t(-1, 0, golden_section_search)
     parameters.analysis.line_search_explore = True
@@ -168,7 +187,8 @@ def test_handles_line_search_custom_diagnostics():
 
 
 def test_handles_residuals_norm():
-    # Arrange
+    # Arrange: (x−3)³, целевая |r| вместо r². Порог residuals_norm = 1.5 с early exit:
+    # Ньютон имеет право остановиться, не доведя ρ-метрику шага до ε.
     equation = cubic_equation_fixed()
     parameters = fixed_solver_parameters_t(1, 0, golden_section_search)
     parameters.residuals_norm = 1.5
@@ -186,7 +206,8 @@ def test_handles_residuals_norm():
 
 
 def test_handles_stop_by_custom_criteria_when_other_criteria_disabled():
-    # Arrange
+    # Arrange: оба стандартных критерия выключены (NaN). Сходимость — только
+    # когда max|p| < 1e-6, то есть шаг Ньютона уже численный нуль.
     equation = simple_equation_with_custom_criteria()
     parameters = fixed_solver_parameters_t(-1, 0, golden_section_search)
     parameters.residuals_norm = float("nan")

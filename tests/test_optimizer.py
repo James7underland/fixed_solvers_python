@@ -14,13 +14,15 @@ from fixed_solvers import (
 
 
 class simple_sum_of_squares_function(fixed_least_squares_function_t):
+    """min (x−2)² + (y−1)², минимум в (2, 1)."""
     def residuals(self, x):
         x = np.asarray(x, dtype=float)
         return np.array([x[0] - 2.0, x[1] - 1.0])
 
 
 def test_converges_simple_function():
-    # Arrange
+    # Arrange: min (x−2)² + (y−1)², старт (0, 0). Один шаг Гаусса–Ньютона
+    # на линейных невязках должен попасть почти точно в (2, 1).
     initial = np.zeros(2)
     function = simple_sum_of_squares_function()
     parameters = fixed_optimizer_parameters_t()
@@ -34,7 +36,7 @@ def test_converges_simple_function():
 
 
 def test_converges_rosenbrock_function():
-    # Arrange
+    # Arrange: канонический минимум Розенброка (1, 1), старт (0, 0).
     initial = np.zeros(2)
     function = rosenbrock_function_t()
     parameters = fixed_optimizer_parameters_t()
@@ -48,7 +50,8 @@ def test_converges_rosenbrock_function():
 
 
 def test_performs_learning_curve_analysis():
-    # Arrange
+    # Arrange: история ц.ф. по итерациям. Розенброк унимодален вдоль траектории
+    # Гаусса–Ньютона — каждое следующее значение строго меньше предыдущего.
     initial = np.zeros(2)
     function = rosenbrock_function_t()
     parameters = fixed_optimizer_parameters_t()

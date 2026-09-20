@@ -27,7 +27,7 @@ def test_make_array_repeats_value():
 
 
 def test_create_array_calls_getter_from_last_index():
-    # Arrange
+    # Arrange: getter должен вызваться i = 2, 1, 0; values[i] = 2i всё равно.
     order = []
 
     def getter(index):
@@ -57,6 +57,7 @@ def test_array_algebra_matches_fixed_dimension_operators():
     product = inner_prod(v1, v2)
     mv = matvec(matrix, v1)
     # Assert
+    # ⟨v₁,v₂⟩ = 1·4+2·5+3·6 = 32; Mv = (14, 32, 50).
     np.testing.assert_allclose(summed, [5.0, 7.0, 9.0])
     np.testing.assert_allclose(diff, [3.0, 3.0, 3.0])
     np.testing.assert_allclose(scaled, [2.0, 4.0, 6.0])
@@ -68,7 +69,7 @@ def test_array_algebra_matches_fixed_dimension_operators():
 
 
 def test_array_ref_writes_through_source():
-    # Arrange
+    # Arrange: array_ref держит пары (буфер, индекс), запись идёт в исходный ndarray.
     source = np.array([1.0, 2.0, 3.0])
     refs = array_ref(source=source)
     # Act
