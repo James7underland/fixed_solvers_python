@@ -94,7 +94,7 @@ python -m pytest
 
 Тесты повторяют набор из исходного C++-репозитория (`testing/`) и закрывают QP, `array_ext`, sparse-ограничения и строковые хелперы.
 
-CI: GitHub Actions (`pytest` + pre-commit) и GitLab CI (`unicode_check` + `pytest`). CMake/MSVC/vcpkg-сборка C++ не переносится.
+CI: GitHub Actions запускает `pytest` на Python 3.10–3.12.
 
 ## Документация алгоритмов
 

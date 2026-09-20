@@ -19,13 +19,4 @@ jobs:
       - name: Install package
         run: python -m pip install -e ".[test]"
       - name: Run pytest
-        run: |
-          mkdir -p pipeline/pipeline_result/tests_out
-          python -m pytest --junitxml=pipeline/pipeline_result/tests_out/pytest.xml
-      - name: Upload test report
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: pytest-python-${{ matrix.python-version }}
-          path: pipeline/pipeline_result
-          if-no-files-found: ignore
+        run: python -m pytest

@@ -23,6 +23,7 @@ env/
 # IDE
 .idea/
 .vs/
+.vscode/
 *.user
 
 # OS
