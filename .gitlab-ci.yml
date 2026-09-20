@@ -1,0 +1,31 @@
+stages:
+  - Static_test
+  - Unit_Testing
+
+# Проверка кодировки исходников на UTF-8 (аналог C++ unicode_check по .h/.cpp)
+Unicode:
+  stage: Static_test
+  image: python:3.11
+  script:
+    - mkdir -p pipeline/pipeline_result
+    - python pipeline/pipeline_scripts/unicode_check.py
+  allow_failure: true
+  artifacts:
+    expire_in: 48 hour
+    when: on_failure
+    paths:
+      - pipeline/pipeline_result
+
+# Установка пакета и pytest (вместо GCC/Clang/MinGW CMake-сборки)
+pytest:
+  stage: Unit_Testing
+  image: python:3.11
+  script:
+    - python -m pip install -e ".[test]"
+    - bash pipeline/pipeline_scripts/tests_start.sh
+  allow_failure: false
+  artifacts:
+    expire_in: 1 week
+    when: always
+    paths:
+      - pipeline/pipeline_result
